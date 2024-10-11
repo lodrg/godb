@@ -24,7 +24,7 @@ func main() {
             continue
         }
         fmt.Println("New Connection happened:", conn.RemoteAddr())
-        handleConnection(conn)
+        go handleConnection(conn)
     }
 }
 func handleConnection(conn net.Conn) {

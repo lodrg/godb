@@ -29,7 +29,7 @@ func main() {
 }
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	fmt.Println("Handling connection from:", conn.RemoteAddr())
+    fmt.Println("Handling connection from:", conn.RemoteAddr())
 
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)

@@ -1,60 +1,74 @@
 package main
 
 import (
-    "fmt"
-    "net"
-    "bufio"
-    "godb/tree"
+	"bufio"
+	"fmt"
+	"godb/tree"
+	"net"
 )
 
 const PORT = 8088
 
 func main() {
-    //listenConn()
+	//listenConn()
 
-    root := tree.NewTreeNode(1)
+	// 创建一个4阶B+树
+	tree := tree.NewBPTree(4)
 
+	// 插入测试数据
+	testData := map[int]string{
+		1:  "一",
+		4:  "四",
+		7:  "七",
+		10: "十",
+		2:  "二",
+		5:  "五",
+		8:  "八",
+		3:  "三",
+		6:  "六",
+		9:  "九",
+	}
 
-    child1 := tree.NewTreeNode(2)
-    child2 := tree.NewTreeNode(3)
-    child3 := tree.NewTreeNode(4)
+	// 插入数据并打印树的状态
+	for k, v := range testData {
+		tree.Insert(k, v)
+		fmt.Printf("\n插入 %d:%s 后的树结构:\n", k, v)
+		tree.Print()
+	}
 
-    root.AddChild(child1)
-    root.AddChild(child2)
-
-    child1.AddChild(tree.NewTreeNode(5))
-    child1.AddChild(tree.NewTreeNode(6))
-
-    child2.AddChild(child3)
-
-    fmt.Println("树结构打印：")
-    root.PrintTree(0)
+	// 搜索测试
+	fmt.Println("\n搜索测试:")
+	for k := 1; k <= 10; k++ {
+		if v, found := tree.Search(k); found {
+			fmt.Printf("找到键 %d，值为: %v\n", k, v)
+		}
+	}
 
 }
 
-func listenConn(){
-       listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d",PORT))
-    if (err != nil) {
-        fmt.Println("Error happen", err)
-        return
-    }
-    fmt.Println("Server is listening on port", PORT)
-    defer listener.Close()
+func listenConn() {
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", PORT))
+	if err != nil {
+		fmt.Println("Error happen", err)
+		return
+	}
+	fmt.Println("Server is listening on port", PORT)
+	defer listener.Close()
 
-    for {
-        conn, err := listener.Accept()
-        if (err != nil) {
-            fmt.Println("Error happen", err)
-            continue
-        }
-        fmt.Println("New Connection happened:", conn.RemoteAddr())
-        go handleConnection(conn)
-    }
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			fmt.Println("Error happen", err)
+			continue
+		}
+		fmt.Println("New Connection happened:", conn.RemoteAddr())
+		go handleConnection(conn)
+	}
 }
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-    fmt.Println("Handling connection from:", conn.RemoteAddr())
+	fmt.Println("Handling connection from:", conn.RemoteAddr())
 
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
@@ -73,7 +87,7 @@ func handleConnection(conn net.Conn) {
 		}
 
 		fmt.Printf("Received: %s", line)
-        writer.WriteString("Echo: " + line)
-        writer.Flush()
+		writer.WriteString("Echo: " + line)
+		writer.Flush()
 	}
 }

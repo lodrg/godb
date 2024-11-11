@@ -128,7 +128,7 @@ func (n *LeafNode) Insert(key int, value interface{}) Node {
 	n.entries[insertIndex] = Entry{Key: key, Value: value}
 
 	// 如果节点需要分裂
-	if len(n.entries) >= n.order {
+	if len(n.entries) > n.order {
 		return n.split()
 	}
 
@@ -137,7 +137,8 @@ func (n *LeafNode) Insert(key int, value interface{}) Node {
 
 // split 分裂叶子节点
 func (n *LeafNode) split() Node {
-	midIndex := (n.order - 1) / 2
+	midIndex := n.order / 2
+	fmt.Println("中间节点", midIndex)
 
 	// 创建新的右侧节点
 	newNode := NewLeafNode(n.order)
@@ -182,9 +183,9 @@ func (n *InternalNode) Insert(key int, value interface{}) Node {
 	for insertIndex < len(n.entries) && n.entries[insertIndex].Key <= key {
 		insertIndex++
 	}
-	if insertIndex > 0 {
-		insertIndex--
-	}
+	// if insertIndex > 0 {
+	// 	insertIndex--
+	// }
 
 	// 递归插入到子节点
 	child := n.children[insertIndex]
@@ -237,13 +238,15 @@ func (n *InternalNode) split() Node {
 	newNode.entries = append(newNode.entries, n.entries[midIndex+1:]...)
 	newNode.children = append(newNode.children, n.children[midIndex+1:]...)
 
+	midKey := n.entries[midIndex]
+
 	// 更新当前节点
 	n.entries = n.entries[:midIndex]
 	n.children = n.children[:midIndex+1]
 
 	// 创建新的父节点
 	parent := NewInternalNode(n.order)
-	parent.entries = append(parent.entries, n.entries[midIndex])
+	parent.entries = append(parent.entries, midKey)
 	parent.children = append(parent.children, n, newNode)
 
 	return parent

@@ -1,7 +1,17 @@
 # godb
 go version database frome scratch
 
-pseudo
+pseudo 01
+
+baseNode
+    keys keycount 
+leafNode
+    nextleaf
+
+pseudo 02
+
+
+pseudo 03
 
 一个 bpt 类，属性是 root order
 一个 BaseNode 类，属性是 keys keycount parent 

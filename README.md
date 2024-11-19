@@ -3,13 +3,21 @@ go version database frome scratch
 
 pseudo 01
 
-baseNode
-    keys keycount 
-leafNode
-    nextleaf
+    baseNode
+        keys keycount 
+    leafNode
+        nextleaf
 
 pseudo 02
 
+    baseNode
+        keys keycount order
+    leafNode
+        baseNode nextleaf
+    internalNode
+        baseNode children 
+
+    insert search
 
 pseudo 03
 

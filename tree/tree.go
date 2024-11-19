@@ -109,7 +109,9 @@ func (t *BPTree) printNode(node Node, prefix string) {
 		}
 		fmt.Println()
 	}
-} // Insert 实现叶子节点的插入
+}
+
+// Insert 实现叶子节点的插入
 func (n *LeafNode) Insert(key int, value interface{}) Node {
 	insertIndex := 0
 	for insertIndex < len(n.entries) && n.entries[insertIndex].Key < key {

@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"godb/file"
+	f "godb/file"
 	"godb/tree"
 	"log"
 	"net"
@@ -51,7 +51,7 @@ func main() {
 		}
 	}
 
-	db := file.NewSimpleDB("users.db")
+	db := f.NewSimpleDB("users.db")
 
 	for i := range 10 {
 		db.Insert(int32(i), "alice"+strconv.Itoa(i))

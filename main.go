@@ -3,8 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"godb/file"
 	"godb/tree"
+	"log"
 	"net"
+	"strconv"
 )
 
 const PORT = 8088
@@ -48,6 +51,25 @@ func main() {
 		}
 	}
 
+	db := file.NewSimpleDB("users.db")
+
+	for i := range 10 {
+		db.Insert(int32(i), "alice"+strconv.Itoa(i))
+	}
+
+	// 3. 查询记录并检查是否为nil
+	record, err := db.Select(1)
+	if err != nil {
+		log.Fatalf("Failed to select record: %v", err)
+	}
+
+	// 4. 检查record是否为nil
+	if record == nil {
+		fmt.Println("Record not found")
+		return
+	}
+
+	fmt.Printf("ID: %d, Name: %s\n", record.ID, record.Name)
 }
 
 func listenConn() {

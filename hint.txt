@@ -4,3 +4,19 @@ main 包中引用的包，需要包名进行调用
 使用 strings.Repeat来进行字符串复制，复制过程中传入两个参数，第一个参数是一个字符串用”“包裹，第二个参数是重复的数量
 append 函数用来给数组加入新值，go 中的这种 api 是函数式的调用append(n.Children, child)
 
+
+os.OpenFile()
+    打开文件
+binary.BigEndian.PutUint32(buf[:idlength], int32(id))
+    大端序把 int 以 byte 写入 buf
+binary.BigEndian.Uint32(idbuf)
+    直接转换
+copy(buf[length:], nameBytes)
+    复制 
+f.Write(buf)
+    写入
+
+第二次用 err 不用：
+
+io.ReadFull(f, nameBuf)
+    读最新 

@@ -131,3 +131,11 @@ leafnode 的 search
     直接遍历 entries 如果有 key 相同的就是了
     （可以进行二分查找优化？）
 
+disPager
+    属性：
+    filename file 
+    totalpage pageSize
+
+    方法：
+    read write
+    delete close

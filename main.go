@@ -70,6 +70,43 @@ func main() {
 	}
 
 	fmt.Printf("ID: %d, Name: %s\n", record.ID, record.Name)
+
+	// 创建分页器
+	pager, err := f.NewDiskPager("test.db", 32)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer pager.Close()
+
+	// 准备数据
+	data := make([]byte, pager.GetPageSize())
+	copy(data, []byte("Hello, World!"))
+
+	// 写入数据
+	if err := pager.WritePage(0, data); err != nil {
+		log.Fatal(err)
+	}
+
+	// 准备数据
+	data2 := make([]byte, pager.GetPageSize())
+	copy(data2, []byte("Hello, World!"))
+
+	// 写入数据
+	if err := pager.WritePage(1, data2); err != nil {
+		log.Fatal(err)
+	}
+	// 确保数据写入磁盘
+	if err := pager.Sync(); err != nil {
+		log.Fatal(err)
+	}
+
+	// 读取数据
+	readData, err := pager.ReadPage(1)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Read: %s\n", string(readData[:32]))
 }
 
 func listenConn() {

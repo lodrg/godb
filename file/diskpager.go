@@ -72,15 +72,15 @@ func (dp *DiskPager) WritePage(pageNum uint32, data []byte) error {
 	defer dp.mu.Unlock()
 
 	if dp.pageSize != uint32(len(data)) {
-		fmt.Errorf("page is not in file length")
+		return fmt.Errorf("page is not in file length")
 	}
 	if pageNum > dp.totalPage {
-		fmt.Errorf("page number out of range")
+		return fmt.Errorf("page number out of range")
 	}
 	offset := int64(pageNum) * int64(dp.pageSize)
 	n, err := dp.file.WriteAt(data, offset)
 	if err != nil {
-		fmt.Errorf("failed to read page: %w", err)
+		return fmt.Errorf("failed to read page: %w", err)
 	}
 	if n != len(data) {
 		return fmt.Errorf("incomplete write: wrote %d bytes out of %d", n, len(data))

@@ -28,7 +28,7 @@ func TestDiskPager(t *testing.T) {
 		t.Errorf("Expected page number 0, got %d", page0)
 	}
 
-	// 测试2: 再次分配，应该得到页面2
+	// 测试2: 再次分配，应该得到页面1
 	page1, err := pager.AllocateNewPage()
 	if err != nil {
 		t.Fatalf("Failed to allocate page 1: %v", err)
@@ -76,7 +76,7 @@ func TestDiskPager(t *testing.T) {
 	}
 
 	// 测试8: 写入错误大小的数据
-	invalidData := make([]byte, 50) // 页大小是100
+	invalidData := make([]byte, 500) // 页大小是100
 	err = pager.WritePage(0, invalidData)
 	if err == nil {
 		t.Error("Expected error when writing invalid size data")

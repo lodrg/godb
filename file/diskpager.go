@@ -9,13 +9,13 @@ import (
 type DiskPager struct {
 	fileName  string
 	file      *os.File
-	totalPage uint32
-	pageSize  uint32
+	totalPage int
+	pageSize  int
 	info      os.FileInfo
 	mu        sync.RWMutex // 添加互斥锁保护并发访问
 }
 
-func NewDiskPager(filename string, pageSize uint32) (*DiskPager, error) {
+func NewDiskPager(filename string, pageSize int) (*DiskPager, error) {
 	// 打开文件
 	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
@@ -32,7 +32,7 @@ func NewDiskPager(filename string, pageSize uint32) (*DiskPager, error) {
 	}
 
 	// 计算总页数
-	totalPage := uint32(info.Size()) / pageSize
+	totalPage := int(info.Size()) / pageSize
 	if info.Size()%int64(pageSize) > 0 {
 		totalPage++
 	}
@@ -46,7 +46,7 @@ func NewDiskPager(filename string, pageSize uint32) (*DiskPager, error) {
 	}, nil
 }
 
-func (dp *DiskPager) ReadPage(pageNum uint32) ([]byte, error) {
+func (dp *DiskPager) ReadPage(pageNum int) ([]byte, error) {
 	dp.mu.RLock()
 	defer dp.mu.RUnlock()
 
@@ -67,11 +67,11 @@ func (dp *DiskPager) ReadPage(pageNum uint32) ([]byte, error) {
 	return pageData[:n], nil
 }
 
-func (dp *DiskPager) WritePage(pageNum uint32, data []byte) error {
+func (dp *DiskPager) WritePage(pageNum int, data []byte) error {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 
-	if dp.pageSize != uint32(len(data)) {
+	if dp.pageSize != len(data) {
 		return fmt.Errorf("page is not in file length")
 	}
 	if pageNum > dp.totalPage {
@@ -101,7 +101,7 @@ func (dp *DiskPager) updateFileInfo() error {
 		return err
 	}
 	dp.info = info
-	dp.totalPage = uint32(info.Size()) / dp.pageSize
+	dp.totalPage = int(info.Size()) / dp.pageSize
 	if info.Size()%int64(dp.pageSize) > 0 {
 		dp.totalPage++
 	}
@@ -109,7 +109,7 @@ func (dp *DiskPager) updateFileInfo() error {
 }
 
 // AllocateNewPage 分配新页面并返回页号
-func (dp *DiskPager) AllocateNewPage() (uint32, error) {
+func (dp *DiskPager) AllocateNewPage() (int, error) {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 
@@ -146,11 +146,11 @@ func (dp *DiskPager) Sync() error {
 }
 
 // Getter 方法
-func (dp *DiskPager) GetTotalPage() uint32 {
+func (dp *DiskPager) GetTotalPage() int {
 	return dp.totalPage
 }
 
-func (dp *DiskPager) GetPageSize() uint32 {
+func (dp *DiskPager) GetPageSize() int {
 	return dp.pageSize
 }
 

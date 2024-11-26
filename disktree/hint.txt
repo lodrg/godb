@@ -1,0 +1,17 @@
+Entry
+    key: int
+    value: string 
+internalNode
+    order: int
+    pageNumber: int             (*)
+    entry: []Entry
+    childrenPageNumbers []int   (*)
+leafNode
+    order: int
+    pageNumber: int             (*)
+    entry: []Entry
+    NextPageNumber        int   (*)
+
+format for leafNode
+isLeaf (1 byte) | keyCount (4 bytes) | [key (4 bytes) | valueLength (4 bytes) | valueData (valueLength bytes)] * keyCount | nextPageNumber (4 bytes)
+

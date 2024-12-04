@@ -16,11 +16,16 @@ type DiskPager struct {
 }
 
 func NewDiskPager(filename string, pageSize int) (*DiskPager, error) {
-	// 打开文件
+	// 先删除已存在的文件
+	if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
+		// 如果删除失败且错误不是"文件不存在"，则返回错误
+		return nil, fmt.Errorf("failed to remove existing file: %v", err)
+	}
+
+	// 创建新文件
 	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		println("can't open file")
-		return nil, err
+		return nil, fmt.Errorf("failed to create file: %v", err)
 	}
 
 	// 获取文件信息
@@ -36,6 +41,7 @@ func NewDiskPager(filename string, pageSize int) (*DiskPager, error) {
 	if info.Size()%int64(pageSize) > 0 {
 		totalPage++
 	}
+	//fmt.Println("totalPage: ", totalPage)
 
 	return &DiskPager{
 		fileName:  filename,
@@ -56,7 +62,7 @@ func (dp *DiskPager) ReadPage(pageNum int) ([]byte, error) {
 	pageData := make([]byte, dp.pageSize)
 
 	if int64((pageNum+1)*dp.pageSize) > dp.info.Size() {
-		return nil, fmt.Errorf("ErrPageOutOfRange: page %d extends beyond file length", pageNum)
+		return nil, fmt.Errorf("ErrPageOutOfRange: page %d extends beyond file length: %d", pageNum, dp.info.Size())
 	}
 	offset := int64(pageNum) * int64(dp.pageSize)
 	n, err := dp.file.ReadAt(pageData, offset)
@@ -113,19 +119,19 @@ func (dp *DiskPager) AllocateNewPage() (int, error) {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 
-	// 获取当前页号
 	newPageNum := dp.totalPage
+	dp.totalPage++
 
-	// 扩展文件大小到新页面
-	newSize := int64(dp.totalPage+1) * int64(dp.pageSize)
+	newSize := int64(dp.totalPage) * int64(dp.pageSize)
 	if err := dp.file.Truncate(newSize); err != nil {
+		dp.totalPage--
 		return 0, fmt.Errorf("failed to allocate new page: %w", err)
 	}
 
-	// 更新文件信息
-	if err := dp.updateFileInfo(); err != nil {
-		return 0, fmt.Errorf("failed to update file info: %w", err)
-	}
+	info, _ := dp.file.Stat()
+	dp.info = info
+
+	fmt.Printf("Allocating new page : %d\n", newPageNum)
 
 	return newPageNum, nil
 }

@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"godb/disktree"
 	f "godb/file"
-	"godb/tree"
 	"log"
 	"net"
 	"strconv"
@@ -14,26 +14,32 @@ const PORT = 8088
 
 func main() {
 	//listenConn()
-
+	diskPager, err := f.NewDiskPager("disktest.db", 80)
 	// 创建一个4阶B+树
-	tree := tree.NewBPTree(4)
+	tree := disktree.NewBPTree(4, 10, *diskPager)
 
 	// 插入测试数据
-	testData := map[int]string{
-		1:  "一",
-		4:  "四",
-		7:  "七",
-		10: "十",
-		2:  "二",
-		5:  "五",
-		8:  "八",
-		3:  "三",
-		6:  "六",
-		9:  "九",
-		11: "十一",
-		12: "十二",
-		13: "十三",
-		14: "十四",
+	testData := map[uint32]string{
+		1:  "一",   // One
+		2:  "二",   // Two
+		3:  "三",   // Three
+		4:  "四",   // Four
+		5:  "五",   // Five
+		6:  "六",   // Six
+		7:  "七",   // Seven
+		8:  "八",   // Eight
+		9:  "九",   // Nine
+		10: "十",   // Ten
+		11: "十一", // Eleven
+		12: "十二", // Twelve
+		13: "十三", // Thirteen
+		14: "十四", // Fourteen
+		15: "十五", // Fifteen
+		16: "十六", // Sixteen
+		17: "十七", // Seventeen
+		18: "十八", // Eighteen
+		19: "十九", // Nineteen
+		20: "二十", // Twenty
 	}
 
 	// 插入数据并打印树的状态
@@ -46,10 +52,12 @@ func main() {
 	// 搜索测试
 	fmt.Println("\n搜索测试:")
 	for k := 1; k <= 10; k++ {
-		if v, found := tree.Search(k); found {
-			fmt.Printf("找到键 %d，值为: %v\n", k, v)
+		if v, found := tree.Search(uint32(k)); found {
+			fmt.Printf("找到键 %d，值为: %s\n", k, v)
 		}
 	}
+	search, _ := tree.Search(3)
+	fmt.Println("search:", search)
 
 	db := f.NewSimpleDB("users.db")
 
@@ -71,42 +79,6 @@ func main() {
 
 	fmt.Printf("ID: %d, Name: %s\n", record.ID, record.Name)
 
-	// 创建分页器
-	pager, err := f.NewDiskPager("test.db", 32)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer pager.Close()
-
-	// 准备数据
-	data := make([]byte, pager.GetPageSize())
-	copy(data, []byte("Hello, World!"))
-
-	// 写入数据
-	if err := pager.WritePage(0, data); err != nil {
-		log.Fatal(err)
-	}
-
-	// 准备数据
-	data2 := make([]byte, pager.GetPageSize())
-	copy(data2, []byte("Hello, World!"))
-
-	// 写入数据
-	if err := pager.WritePage(1, data2); err != nil {
-		log.Fatal(err)
-	}
-	// 确保数据写入磁盘
-	if err := pager.Sync(); err != nil {
-		log.Fatal(err)
-	}
-
-	// 读取数据
-	readData, err := pager.ReadPage(1)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("Read: %s\n", string(readData[:32]))
 }
 
 func listenConn() {

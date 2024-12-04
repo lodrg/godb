@@ -8,6 +8,7 @@ append 函数用来给数组加入新值，go 中的这种 api 是函数式的�
 os.OpenFile()
     打开文件
 binary.BigEndian.PutUint32(buf[:idlength], int32(id))
+binary.Write(buf1, binary.Bigendian, uint32)
     大端序把 int 以 byte 写入 buf
 binary.BigEndian.Uint32(idbuf)
     直接转换

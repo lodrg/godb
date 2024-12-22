@@ -18,7 +18,14 @@ type BPTree struct {
 }
 
 // NewBPTree 创建新的 B+ 树
-func NewBPTree(order uint32, valueLength uint32, diskPager f.DiskPager) *BPTree {
+func NewBPTree(order uint32, valueLength uint32) *BPTree {
+
+	diskPager, err := f.NewDiskPager("disktest.db", 80, 80)
+
+	if err != nil {
+		log.Fatal("Failed to allocate new page")
+	}
+
 	if order < 3 {
 		order = 3
 	}
@@ -33,14 +40,14 @@ func NewBPTree(order uint32, valueLength uint32, diskPager f.DiskPager) *BPTree 
 			log.Fatal("Failed to allocate new page")
 		}
 		//fmt.Println("value length:", valueLength)
-		root := NewLeafNode(order, valueLength, &diskPager, uint32(rootPageNum))
+		root := NewLeafNode(order, valueLength, diskPager, uint32(rootPageNum))
 		if err := root.WriteDisk(); err != nil {
 			log.Fatal(err)
 		}
 		bp := &BPTree{
 			rootPageNumber: uint32(rootPageNum),
 			order:          order,
-			DiskPager:      diskPager,
+			DiskPager:      *diskPager,
 			ValueLength:    valueLength,
 		}
 		bp.writeMetadata()
@@ -48,12 +55,12 @@ func NewBPTree(order uint32, valueLength uint32, diskPager f.DiskPager) *BPTree 
 	}
 	// 检查读取到的数据是否足够
 	// 从数据的前 4 字节读取 rootPageNumber
-	rootPageNumber := readMetadata(diskPager)
+	rootPageNumber := readMetadata(*diskPager)
 
 	return &BPTree{
 		rootPageNumber: uint32(rootPageNumber),
 		order:          order,
-		DiskPager:      diskPager,
+		DiskPager:      *diskPager,
 	}
 }
 

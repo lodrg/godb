@@ -2,15 +2,12 @@ package tests
 
 import (
 	"godb/disktree"
-	f "godb/file"
 	"testing"
 )
 
 func TestTree(t *testing.T) {
-	//listenConn()
-	diskPager, _ := f.NewDiskPager("disktest.db", 80)
 	// 创建一个4阶B+树
-	tree := disktree.NewBPTree(4, 10, *diskPager)
+	tree := disktree.NewBPTree(4, 10)
 
 	tree.Print()
 

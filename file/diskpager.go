@@ -12,10 +12,13 @@ type DiskPager struct {
 	totalPage int
 	pageSize  int
 	info      os.FileInfo
+	cacheSize int
+	cache     map[int][]byte
+	lru       *lru
 	mu        sync.RWMutex // 添加互斥锁保护并发访问
 }
 
-func NewDiskPager(filename string, pageSize int) (*DiskPager, error) {
+func NewDiskPager(filename string, pageSize int, cacheSize int) (*DiskPager, error) {
 	// 先删除已存在的文件
 	if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
 		// 如果删除失败且错误不是"文件不存在"，则返回错误
@@ -49,7 +52,23 @@ func NewDiskPager(filename string, pageSize int) (*DiskPager, error) {
 		pageSize:  pageSize,
 		totalPage: totalPage,
 		info:      info,
+		cacheSize: cacheSize,
+		cache:     make(map[int][]byte),
+		lru:       newLRU(totalPage),
 	}, nil
+}
+
+func (dp *DiskPager) addToCache(pageNum int, data []byte) {
+	if len(dp.cache) >= dp.cacheSize {
+		// remove the least used page
+		lastUsed, b := dp.lru.removeLast()
+		if b {
+			delete(dp.cache, lastUsed)
+		}
+	}
+	dp.cache[pageNum] = data
+	//updatelru
+	dp.lru.add(pageNum)
 }
 
 func (dp *DiskPager) ReadPage(pageNum int) ([]byte, error) {
@@ -59,6 +78,15 @@ func (dp *DiskPager) ReadPage(pageNum int) ([]byte, error) {
 	if pageNum > dp.totalPage {
 		return nil, fmt.Errorf("page number %d out of range (total pages: %d)", pageNum, dp.totalPage)
 	}
+
+	// check cache first
+	cachePage := dp.cache[pageNum]
+	if cachePage != nil {
+		//update lru
+		dp.lru.add(pageNum)
+		return cachePage, nil
+	}
+
 	pageData := make([]byte, dp.pageSize)
 
 	if int64((pageNum+1)*dp.pageSize) > dp.info.Size() {
@@ -70,6 +98,7 @@ func (dp *DiskPager) ReadPage(pageNum int) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read page: %w", err)
 	}
 
+	dp.addToCache(pageNum, pageData[:n])
 	return pageData[:n], nil
 }
 
@@ -88,6 +117,9 @@ func (dp *DiskPager) WritePage(pageNum int, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to read page: %w", err)
 	}
+
+	dp.addToCache(pageNum, data[:n])
+
 	if n != len(data) {
 		return fmt.Errorf("incomplete write: wrote %d bytes out of %d", n, len(data))
 	}
@@ -140,6 +172,12 @@ func (dp *DiskPager) AllocateNewPage() (int, error) {
 func (dp *DiskPager) Close() error {
 	if dp.file != nil {
 		return dp.file.Close()
+	}
+	if dp.lru != nil {
+		return dp.lru.Close()
+	}
+	if dp.cache != nil {
+		dp.cache = nil
 	}
 	return nil
 }

@@ -1,7 +1,8 @@
-package file
+package tests
 
 import (
 	"bytes"
+	"godb/file"
 	"testing"
 )
 
@@ -12,7 +13,7 @@ func TestDiskPager(t *testing.T) {
 	cacheSize := 10
 
 	// 创建DiskPager实例
-	pager, err := NewDiskPager(filename, pageSize, cacheSize)
+	pager, err := file.NewDiskPager(filename, pageSize, cacheSize)
 	if err != nil {
 		t.Fatalf("Failed to create DiskPager: %v", err)
 	}

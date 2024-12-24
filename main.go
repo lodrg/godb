@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"godb/disktree"
 	f "godb/file"
+	p "godb/sqlparser"
 	"log"
 	"net"
 	"strconv"
@@ -13,9 +14,15 @@ import (
 const PORT = 8088
 
 func main() {
-	diskPager, err := f.NewDiskPager("disktest.db", 80, 80)
+	//useBP()
+
+	p.Test()
+
+}
+
+func useBP() {
 	// 创建一个4阶B+树
-	tree := disktree.NewBPTree(4, 10, *diskPager)
+	tree := disktree.NewBPTree(4, 10)
 
 	// 插入测试数据
 	testData := map[uint32]string{
@@ -77,7 +84,6 @@ func main() {
 	}
 
 	fmt.Printf("ID: %d, Name: %s\n", record.ID, record.Name)
-
 }
 
 func listenConn() {

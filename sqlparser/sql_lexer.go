@@ -193,8 +193,10 @@ func (l *SQLLexer) readChar() {
 	if l.position >= len(l.input) {
 		l.ch = 0
 	} else {
+		// read to ch
 		l.ch = l.input[l.position]
 	}
+	// move forward, so the ch is late of position
 	l.position++
 }
 

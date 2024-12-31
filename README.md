@@ -1,10 +1,12 @@
 # godb
 go version database frome scratch
 
+tree : b+ tree in memory
+
 file : disk cache controller
 
-tests : test
+database: database api
 
-tree : b+ tree
+disktree: b+ tree engine with disk flush
 
-so the next step is to add the sql lexer and parser, after that we will get a ast.
+sqlparser: lexer and parser to sql

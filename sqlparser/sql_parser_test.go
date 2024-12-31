@@ -320,21 +320,21 @@ func TestEdgeCases(t *testing.T) {
 			sql:     "",
 			wantErr: true,
 		},
-		//{
-		//	name:    "select without columns",
-		//	sql:     "SELECT FROM users",
-		//	wantErr: true,
-		//},
-		//{
-		//	name:    "select without table",
-		//	sql:     "SELECT id",
-		//	wantErr: true,
-		//},
-		//{
-		//	name:    "incomplete where clause",
-		//	sql:     "SELECT id FROM users WHERE",
-		//	wantErr: true,
-		//},
+		{
+			name:    "select without columns",
+			sql:     "SELECT FROM users",
+			wantErr: true,
+		},
+		{
+			name:    "select without table",
+			sql:     "SELECT id",
+			wantErr: true,
+		},
+		{
+			name:    "incomplete where clause",
+			sql:     "SELECT id FROM users WHERE",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

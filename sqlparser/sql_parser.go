@@ -58,7 +58,7 @@ func (p *SQLParser) parse() (ASTNode, error) {
 	token := p.peek()
 	switch token.Type {
 	case SELECT:
-		return p.parseSelect(), nil
+		return p.parseSelect()
 	case INSERT_INTO:
 		return p.parseInsert(), nil
 	case CREATE_TABLE:
@@ -69,39 +69,57 @@ func (p *SQLParser) parse() (ASTNode, error) {
 }
 
 // SELECT column1, column2, column3, ... FROM table_name [JOIN table_name ON condition] [WHERE condition] [ORDER BY column1, column2, column3, ...];
-func (p *SQLParser) parseSelect() *SelectNode {
+func (p *SQLParser) parseSelect() (*SelectNode, error) {
 	p.consume(SELECT)
+
 	// columnlist parse
-	columns := p.parseColumnList()
+	columns, err := p.parseColumnList()
+	if err != nil {
+		return nil, err
+	}
+
+	if !p.match(FROM) {
+		return nil, fmt.Errorf("expected FROM clause after SELECT")
+	}
 	p.consume(FROM)
+
 	// tablename parse
 	tablename, err := p.parsePlainString()
 	if err != nil {
-
+		return nil, err
 	}
+
 	// join ?
-	joins := []*JoinNode{}
+	var joins []*JoinNode
 	if p.match(JOIN) {
-		// join parse
-		joins, _ = p.parseJoin()
+		joins, err = p.parseJoin()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	wheres := []*BinaryOpNode{}
+	var wheres []*BinaryOpNode
 	if p.match(WHERE) {
 		p.next()
-		wheres = p.parseWhereCondition()
+		wheres, err = p.parseWhereCondition()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	orderColumns := []*ColumnNode{}
+	var orderColumns []*ColumnNode
 	if p.match(ORDER_BY) {
 		p.next()
-		orderColumns = p.parseColumnList()
+		orderColumns, err = p.parseColumnList()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return newSelectNode(tablename, columns, wheres, orderColumns, joins)
+	return newSelectNode(tablename, columns, wheres, orderColumns, joins), err
 }
 
-func (p *SQLParser) parseColumnList() []*ColumnNode {
+func (p *SQLParser) parseColumnList() ([]*ColumnNode, error) {
 	columnList := []*ColumnNode{}
 	if p.match(WILDCARD) {
 		columnList = append(columnList, newColumnNode("*", "", WILDCARDN))
@@ -120,7 +138,11 @@ func (p *SQLParser) parseColumnList() []*ColumnNode {
 			}
 		}
 	}
-	return columnList
+	if columnList[0] == nil {
+		return nil, fmt.Errorf("no columns specified")
+	}
+
+	return columnList, nil
 }
 
 func (p *SQLParser) parseColumn() (*ColumnNode, error) {
@@ -170,7 +192,7 @@ func (p *SQLParser) parseJoin() ([]*JoinNode, error) {
 func (p *SQLParser) parseExpression() (*BinaryOpNode, error) {
 	left, err := p.parseColumnOrLiteralOrSubquery()
 	if err != nil {
-
+		return nil, fmt.Errorf("incomplete where clause")
 	}
 	if p.match(EQUALS) {
 		p.next()
@@ -203,22 +225,25 @@ func (p *SQLParser) parseColumnOrLiteralOrSubquery() (ASTNode, error) {
 	} else if p.match(LEFT_PARENTHESIS) {
 		return p.parseSubquery(), nil
 	} else {
-		panic("Expected IDENTIFIER, INTEGER, STRING, or subquery")
+		return nil, fmt.Errorf("expected IDENTIFIER, INTEGER, STRING, or subquery, got %v", p.peek().Type)
 	}
 }
 
 func (p *SQLParser) parseSubquery() *SelectNode {
 	p.consume(LEFT_PARENTHESIS)
-	subquery := p.parseSelect()
+	subquery, _ := p.parseSelect()
 	p.consume(RIGHT_PARENTHESIS)
 	return subquery
 }
 
-func (p *SQLParser) parseWhereCondition() []*BinaryOpNode {
+func (p *SQLParser) parseWhereCondition() ([]*BinaryOpNode, error) {
 	conditions := make([]*BinaryOpNode, 0)
 
 	for {
-		expression, _ := p.parseExpression()
+		expression, err := p.parseExpression()
+		if err != nil {
+			return nil, err
+		}
 		conditions = append(conditions, expression)
 		if p.match(AND) {
 			p.next()
@@ -227,7 +252,7 @@ func (p *SQLParser) parseWhereCondition() []*BinaryOpNode {
 		}
 	}
 
-	return conditions
+	return conditions, nil
 }
 
 func (p *SQLParser) parseInsert() ASTNode {

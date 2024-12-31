@@ -24,16 +24,16 @@ func useBP() {
 
 	// 插入测试数据
 	testData := map[uint32]string{
-		1:  "一",   // One
-		2:  "二",   // Two
-		3:  "三",   // Three
-		4:  "四",   // Four
-		5:  "五",   // Five
-		6:  "六",   // Six
-		7:  "七",   // Seven
-		8:  "八",   // Eight
-		9:  "九",   // Nine
-		10: "十",   // Ten
+		1:  "一",  // One
+		2:  "二",  // Two
+		3:  "三",  // Three
+		4:  "四",  // Four
+		5:  "五",  // Five
+		6:  "六",  // Six
+		7:  "七",  // Seven
+		8:  "八",  // Eight
+		9:  "九",  // Nine
+		10: "十",  // Ten
 		11: "十一", // Eleven
 		12: "十二", // Twelve
 		13: "十三", // Thirteen

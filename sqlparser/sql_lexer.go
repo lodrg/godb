@@ -90,7 +90,7 @@ func (l *SQLLexer) readKeywordOrIdent() Token {
 	// 先检查是否是复合关键字
 	//fmt.Println("space: ", l.peekIsSpace())
 	if l.peekIsSpace() {
-		fmt.Println("position: ", l.input[l.position])
+		//fmt.Println("position: ", l.input[l.position])
 		switch strings.ToUpper(word) {
 		case "ORDER":
 			if l.tryReadNextWord("BY") {
@@ -143,7 +143,7 @@ func (l *SQLLexer) peekIsSpace() bool {
 	if l.position >= len(l.input) {
 		return false
 	}
-	fmt.Printf("peek ch:|%s|\n", string(l.ch))
+	//fmt.Printf("peek ch:|%s|\n", string(l.ch))
 	return l.ch == ' '
 }
 

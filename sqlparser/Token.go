@@ -51,3 +51,59 @@ func newToken(tokenType TokenType, value string) Token {
 		Value: value,
 	}
 }
+func (t TokenType) String() string {
+	switch t {
+	case SELECT:
+		return "SELECT"
+	case FROM:
+		return "FROM"
+	case WHERE:
+		return "WHERE"
+	case JOIN:
+		return "JOIN"
+	case ON:
+		return "ON"
+	case VALUES:
+		return "VALUES"
+	case ORDER_BY:
+		return "ORDER_BY"
+	case INSERT_INTO:
+		return "INSERT_INTO"
+	case CREATE_TABLE:
+		return "CREATE_TABLE"
+	case PRIMARY_KEY:
+		return "PRIMARY_KEY"
+	case PARTIAL_KEYWORD:
+		return "PARTIAL_KEYWORD"
+	case COMMA:
+		return "COMMA"
+	case LEFT_PARENTHESIS:
+		return "LEFT_PARENTHESIS"
+	case RIGHT_PARENTHESIS:
+		return "RIGHT_PARENTHESIS"
+	case IDENTIFIER:
+		return "IDENTIFIER"
+	case WILDCARD:
+		return "WILDCARD"
+	case INTEGER:
+		return "INTEGER"
+	case STRING:
+		return "STRING"
+	case INT:
+		return "INT"
+	case CHAR:
+		return "CHAR"
+	case EQUALS:
+		return "EQUALS"
+	case AND:
+		return "AND"
+	case IN:
+		return "IN"
+	case ILLEGAL:
+		return "ILLEGAL"
+	case EOF:
+		return "EOF"
+	default:
+		return fmt.Sprintf("UNKNOWN_TOKEN(%d)", t)
+	}
+}

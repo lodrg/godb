@@ -80,7 +80,7 @@ func (n *DiskLeafNode) split() *DiskInsertResult {
 	if err != nil {
 		log.Fatal("Failed to allocate new page")
 	}
-	fmt.Println("when split the ValueLength is %d", n.ValueLength)
+	fmt.Printf("when split the ValueLength is %d", n.ValueLength)
 	newNode := NewLeafNode(n.Order, n.ValueLength, n.DiskPager, uint32(newNodePage))
 	newNode.Keys = append(newNode.Keys, n.Keys[midIndex:]...)
 	newNode.Values = append(newNode.Values, n.Values[midIndex:]...)

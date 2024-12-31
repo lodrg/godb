@@ -1,4 +1,4 @@
-package lpjsonparser
+package sqlparser
 
 // @Title        ASTNode.go
 // @Description

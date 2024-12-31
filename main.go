@@ -19,8 +19,16 @@ func main() {
 }
 
 func useBP() {
+
+	dbfileName := "test.db"
+
+	diskPager, err := f.NewDiskPager(dbfileName, 80, 80)
+
+	if err != nil {
+		log.Fatal("Failed to allocate new page")
+	}
 	// 创建一个4阶B+树
-	tree := disktree.NewBPTree(4, 10)
+	tree := disktree.NewBPTree(4, 10, diskPager)
 
 	// 插入测试数据
 	testData := map[uint32]string{

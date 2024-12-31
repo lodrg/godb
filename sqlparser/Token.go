@@ -1,4 +1,4 @@
-package lpjsonparser
+package sqlparser
 
 import "fmt"
 

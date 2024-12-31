@@ -18,13 +18,13 @@ type BPTree struct {
 }
 
 // NewBPTree 创建新的 B+ 树
-func NewBPTree(order uint32, valueLength uint32) *BPTree {
+func NewBPTree(order uint32, valueLength uint32, diskPager *f.DiskPager) *BPTree {
 
-	diskPager, err := f.NewDiskPager("disktest.db", 80, 80)
+	//diskPager, err := f.NewDiskPager(dbfileName, 80, 80)
 
-	if err != nil {
-		log.Fatal("Failed to allocate new page")
-	}
+	//if err != nil {
+	//	log.Fatal("Failed to allocate new page")
+	//}
 
 	if order < 3 {
 		order = 3

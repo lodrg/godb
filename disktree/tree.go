@@ -250,6 +250,14 @@ func (t *BPTree) Search(key uint32) (interface{}, bool) {
 	return root.Search(key)
 }
 
+func (t *BPTree) SearchAll(key uint32) (interface{}, bool) {
+	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber)
+	if root == nil {
+		return nil, false
+	}
+	return root.SearchAll(key)
+}
+
 // Print 打印树结构
 // Print 打印整棵 B+ 树
 func (t *BPTree) Print() {

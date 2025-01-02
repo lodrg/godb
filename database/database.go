@@ -42,12 +42,13 @@ func NewWebpDataBase(dataDirectory string) *DataBase {
 
 	// 读取表定义和初始化B+树
 	db.tableDefinitions = db.readTableDefinition()
+	// 每次都需要初始化吗？
 	db.tableTrees = db.initTableTrees()
 
 	return db
 }
 
-func (b DataBase) readTableDefinition() map[string]*SqlTableDefinition {
+func (b *DataBase) readTableDefinition() map[string]*SqlTableDefinition {
 	if _, err := os.Stat(b.dataDirectory); os.IsNotExist(err) {
 		err := os.MkdirAll(b.dataDirectory, 0755)
 		if err != nil {
@@ -79,11 +80,11 @@ func (b DataBase) readTableDefinition() map[string]*SqlTableDefinition {
 	return tableDefinitions
 }
 
-func (b DataBase) initTableTrees() map[string]*disktree.BPTree {
+func (b *DataBase) initTableTrees() map[string]*disktree.BPTree {
 	tableTrees := make(map[string]*disktree.BPTree)
 	for tableName := range b.tableDefinitions {
 		size := b.getRowSize(tableName)
-		fileName := b.dataDirectory + ".db"
+		fileName := b.dataDirectory + tableName + ".db"
 		diskPager, err := f.NewDiskPager(fileName, PAGE_SIZE, CACHE_SIZE)
 
 		if err != nil {
@@ -95,7 +96,7 @@ func (b DataBase) initTableTrees() map[string]*disktree.BPTree {
 	return tableTrees
 }
 
-func (b DataBase) getRowSize(name string) uint32 {
+func (b *DataBase) getRowSize(name string) uint32 {
 	tableDefinition := b.tableDefinitions[name]
 	rowSize := uint32(0)
 	for _, column := range tableDefinition.columns {
@@ -108,4 +109,86 @@ func (b DataBase) getRowSize(name string) uint32 {
 		}
 	}
 	return rowSize
+}
+
+func (b *DataBase) Execute(sql string) (ExecuteResult, error) {
+	ASTNode, err := sqlparser.Parse(sql)
+	if err != nil {
+		log.Fatal(err)
+	}
+	switch Node := ASTNode.(type) {
+	case sqlparser.SelectNode:
+		result := b.processSelect(Node)
+		return ForSelect(result, b.tableDefinitions[Node.TableName], &ASTNode), nil
+	case sqlparser.InsertNode:
+		affectedrows := b.processInsert(Node)
+		return ForInsert(affectedrows, b.tableDefinitions[Node.TableName]), nil
+	case sqlparser.CreateTbaleNode:
+		b.prcessCreateTable(Node)
+		return ForCreate(b.tableDefinitions[Node.TableName]), nil
+	default:
+		err := fmt.Errorf("Unknown node type: %T", ASTNode)
+		return ForError(err.Error()), err
+	}
+}
+
+func (b *DataBase) processSelect(node sqlparser.SelectNode) *[][]any {
+	result := make([][]any, 0)
+	tableDefinition := b.tableDefinitions[node.TableName]
+	tree := b.tableTrees[node.TableName]
+
+	if node.WhereClause == nil || len(node.WhereClause) == 0 {
+		log.Fatal("Where clause is empty")
+	}
+	condition := b.getPrimeryKeyCondition(node.WhereClause, tableDefinition)
+
+	rows := b.getRows(tree, condition, tableDefinition)
+
+}
+
+func (b *DataBase) processInsert(node sqlparser.InsertNode) uint32 {
+
+}
+
+func (b *DataBase) prcessCreateTable(node sqlparser.CreateTbaleNode) {
+
+}
+
+func (b *DataBase) getPrimeryKeyCondition(clause []*sqlparser.BinaryOpNode, definition *SqlTableDefinition) (*sqlparser.BinaryOpNode, error) {
+	priKeyName, err := getPriName(definition)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, node := range clause {
+		left := node.Left.(sqlparser.ColumnNode)
+		if left.ColumnName == priKeyName {
+			return node, nil
+		}
+	}
+	return nil, fmt.Errorf("No primary key column found")
+}
+
+func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpNode, definition *SqlTableDefinition) *[][]any {
+	right := condition.Right.(*sqlparser.LiteralNode)
+	priKey := right.Value.(uint32)
+	all, _ := tree.SearchAll(priKey)
+
+	if all != nil {
+		rows := make([][]any, 0)
+		for _, bytes := range all.([][]byte) {
+			append(rows, deserializeRow(definition, bytes))
+		}
+		return &rows
+	}
+	log.Fatal("can't found data")
+	return nil
+}
+
+func getPriName(definition *SqlTableDefinition) (string, error) {
+	for _, column := range definition.columns {
+		if column.isPrimaryKey {
+			return column.name, nil // 返回列名而不是数据类型
+		}
+	}
+	return "", fmt.Errorf("primary key not exist in table definition")
 }

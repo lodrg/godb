@@ -124,6 +124,20 @@ func (n *DiskLeafNode) Search(key uint32) (interface{}, bool) {
 	return nil, false // 未找到时返回
 }
 
+func (n *DiskLeafNode) SearchAll(key uint32) (interface{}, bool) {
+	result := make([][]byte, 0)
+
+	for i := 0; i < len(n.Keys); i++ {
+		if key == n.Keys[i] {
+			result = append(result, n.Values[i])
+		} else if key < n.Keys[i] {
+			// 由于keys是有序的，当找到更大的key时可以停止搜索
+			break
+		}
+	}
+	return result, true
+}
+
 // GetKeys 获取节点的键列表
 func (n *DiskLeafNode) GetKeys() []uint32 {
 	keys := make([]uint32, len(n.Keys))

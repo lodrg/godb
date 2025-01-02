@@ -143,6 +143,27 @@ func (n *DiskInternalNode) Search(key uint32) (interface{}, bool) {
 	return child.Search(key)
 }
 
+func (n *DiskInternalNode) SearchAll(key uint32) (interface{}, bool) {
+	// 找到合适的子节点
+	index := 0
+	for index < len(n.Keys) && n.Keys[index] <= key {
+		index++
+	}
+
+	result := make([][]byte, 0, n.Order)
+	for index < len(n.ChildrenPageNumbers) {
+		childPageNumber := n.ChildrenPageNumbers[index]
+		child := ReadDisk(n.Order, n.DiskPager, childPageNumber)
+		all, _ := child.SearchAll(key)
+		result = append(result, all.([][]byte)...)
+		if index < len(n.Keys) && key < n.Keys[index] {
+			break
+		}
+		index++
+	}
+	return result, true
+}
+
 // GetKeys 获取节点的键列表
 func (n *DiskInternalNode) GetKeys() []uint32 {
 	if len(n.Keys) == 0 {

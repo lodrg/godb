@@ -9,7 +9,8 @@ import (
 )
 
 func TestDatabase(t *testing.T) {
-	base := NewWebpDataBase("test_db.db")
-
+	dir := "data"
+	//resetDataDirectory(dir)
+	base := NewWebpDataBase(dir)
 	base.Execute("select * from testTable")
 }

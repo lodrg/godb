@@ -42,8 +42,9 @@ func NewWebpDataBase(dataDirectory string) *DataBase {
 
 	// 读取表定义和初始化B+树
 	db.tableDefinitions = db.readTableDefinition()
+	//fmt.Printf("tableDefinitions: %v\n", db.tableDefinitions)
 	// 每次都需要初始化吗？
-	db.tableTrees = db.initTableTrees()
+	db.tableTrees = db.readTableTree()
 
 	return db
 }
@@ -66,6 +67,7 @@ func (b *DataBase) readTableDefinition() map[string]*SqlTableDefinition {
 		if info, _ := file.Info(); info.Mode().IsRegular() && strings.HasSuffix(file.Name(), ".json") {
 			filePath := filepath.Join(b.dataDirectory, file.Name())
 			content, err := os.ReadFile(filePath)
+			//fmt.Printf("content: %s \n", content)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -74,17 +76,19 @@ func (b *DataBase) readTableDefinition() map[string]*SqlTableDefinition {
 			if err != nil {
 				fmt.Println("Error:", err)
 			}
-			tableDefinitions[table.tableName] = &table
+			//fmt.Printf("json : %v \n", table)
+			tableDefinitions[table.TableName] = &table
 		}
 	}
 	return tableDefinitions
 }
 
-func (b *DataBase) initTableTrees() map[string]*disktree.BPTree {
+func (b *DataBase) readTableTree() map[string]*disktree.BPTree {
 	tableTrees := make(map[string]*disktree.BPTree)
 	for tableName := range b.tableDefinitions {
+		//fmt.Printf("tableName: %s \n", tableName)
 		size := b.getRowSize(tableName)
-		fileName := b.dataDirectory + tableName + ".db"
+		fileName := b.dataDirectory + "/" + tableName + ".db"
 		diskPager, err := f.NewDiskPager(fileName, PAGE_SIZE, CACHE_SIZE)
 
 		if err != nil {
@@ -99,13 +103,15 @@ func (b *DataBase) initTableTrees() map[string]*disktree.BPTree {
 func (b *DataBase) getRowSize(name string) uint32 {
 	tableDefinition := b.tableDefinitions[name]
 	rowSize := uint32(0)
-	for _, column := range tableDefinition.columns {
-		if column.dataType == sqlparser.INT {
+	for _, column := range tableDefinition.Columns {
+		//fmt.Printf("column name: %v \n", column.Name)
+		//fmt.Printf("column type: %v \n", column.DataType)
+		if column.DataType == sqlparser.INT {
 			rowSize += INT_SIZE
-		} else if column.dataType == sqlparser.CHAR {
+		} else if column.DataType == sqlparser.CHAR {
 			rowSize += CHAR_SIZE + CHAR_LENGTH
 		} else {
-			log.Fatal("Unknown column type:", column.dataType)
+			log.Fatal("Unknown column type:", column.DataType)
 		}
 	}
 	return rowSize
@@ -214,17 +220,17 @@ func deserializeRow(definition *SqlTableDefinition, bytes []byte) map[string]int
 
 	// from bytes to typed date (use map here)
 	result := make(map[string]interface{})
-	columns := definition.columns
+	columns := definition.Columns
 	cur_position := 0
 	for _, column := range columns {
-		if column.dataType == sqlparser.INT {
-			result[column.name] = bytes[cur_position:INT_SIZE]
+		if column.DataType == sqlparser.INT {
+			result[column.Name] = bytes[cur_position:INT_SIZE]
 			cur_position += INT_SIZE
-		} else if column.dataType == sqlparser.CHAR {
-			result[column.name] = bytes[cur_position : cur_position+CHAR_SIZE+CHAR_LENGTH]
+		} else if column.DataType == sqlparser.CHAR {
+			result[column.Name] = bytes[cur_position : cur_position+CHAR_SIZE+CHAR_LENGTH]
 			cur_position += CHAR_LENGTH + CHAR_LENGTH
 		} else {
-			log.Fatal("Unknown column type:", column.dataType)
+			log.Fatal("DeserializeRow Unknown column type:", column.DataType)
 		}
 	}
 	return result
@@ -232,23 +238,55 @@ func deserializeRow(definition *SqlTableDefinition, bytes []byte) map[string]int
 
 func getRowSize(definition *SqlTableDefinition) int {
 	size := 0
-	for _, column := range definition.columns {
-		if column.dataType == sqlparser.INT {
+	for _, column := range definition.Columns {
+		if column.DataType == sqlparser.INT {
 			size += INT_SIZE
-		} else if column.dataType == sqlparser.CHAR {
+		} else if column.DataType == sqlparser.CHAR {
 			size += CHAR_SIZE + CHAR_LENGTH
 		} else {
-			log.Fatal("Unknown column type:", column.dataType)
+			log.Fatal("getRowSize Unknown column type:", column.DataType)
 		}
 	}
 	return size
 }
 
 func getPriName(definition *SqlTableDefinition) (string, error) {
-	for _, column := range definition.columns {
-		if column.isPrimaryKey {
-			return column.name, nil // 返回列名而不是数据类型
+	for _, column := range definition.Columns {
+		if column.IsPrimaryKey {
+			return column.Name, nil // 返回列名而不是数据类型
 		}
 	}
 	return "", fmt.Errorf("primary key not exist in table definition")
+}
+
+func resetDataDirectory(dataDirectory string) error {
+	// 检查目录是否存在
+	if _, err := os.Stat(dataDirectory); err == nil {
+		// 目录存在，读取目录中的所有文件
+		files, err := os.ReadDir(dataDirectory)
+		if err != nil {
+			return fmt.Errorf("failed to read directory: %w", err)
+		}
+
+		// 删除所有文件
+		for _, file := range files {
+			if !file.IsDir() { // 只删除文件，不删除子目录
+				err := os.Remove(filepath.Join(dataDirectory, file.Name()))
+				if err != nil {
+					return fmt.Errorf("failed to delete file %s: %w", file.Name(), err)
+				}
+			}
+		}
+	} else if os.IsNotExist(err) {
+		// 目录不存在，创建目录
+		err := os.MkdirAll(dataDirectory, 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create directory: %w", err)
+		}
+	} else {
+		// 其他错误
+		return fmt.Errorf("failed to check directory: %w", err)
+	}
+
+	return nil
 }

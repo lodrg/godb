@@ -10,15 +10,15 @@ import (
 )
 
 type SqlColumnDefinition struct {
-	name         string
-	dataType     sqlparser.TokenType
-	isPrimaryKey bool
+	Name         string              `json:"name"`
+	DataType     sqlparser.TokenType `json:"dataType"`
+	IsPrimaryKey bool                `json:"primaryKey"`
 }
 
 func NewSqlColumnDefinition(name string, dataType sqlparser.TokenType, isPrimaryKey bool) *SqlColumnDefinition {
 	return &SqlColumnDefinition{
-		name:         name,
-		dataType:     dataType,
-		isPrimaryKey: isPrimaryKey,
+		Name:         name,
+		DataType:     dataType,
+		IsPrimaryKey: isPrimaryKey,
 	}
 }

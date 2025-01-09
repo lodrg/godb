@@ -6,13 +6,13 @@ package database
 // @Update       david 2024-12-31 15:31
 
 type SqlTableDefinition struct {
-	tableName string
-	columns   []SqlColumnDefinition
+	TableName string                `json:"tableName"`
+	Columns   []SqlColumnDefinition `json:"columns"`
 }
 
 func NewSqlTableDefinition(tableName string) *SqlTableDefinition {
 	return &SqlTableDefinition{
-		tableName: tableName,
-		columns:   make([]SqlColumnDefinition, 0),
+		TableName: tableName,
+		Columns:   make([]SqlColumnDefinition, 0),
 	}
 }

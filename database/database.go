@@ -134,16 +134,28 @@ func (b *DataBase) Execute(sql string) (ExecuteResult, error) {
 
 func (b *DataBase) processSelect(node sqlparser.SelectNode) *[][]any {
 	result := make([][]any, 0)
+	// get table def form json
 	tableDefinition := b.tableDefinitions[node.TableName]
+	// get tree
 	tree := b.tableTrees[node.TableName]
 
 	if node.WhereClause == nil || len(node.WhereClause) == 0 {
 		log.Fatal("Where clause is empty")
 	}
-	condition := b.getPrimeryKeyCondition(node.WhereClause, tableDefinition)
+	// find where from table def, and hit pk
+	condition, _ := b.getPrimeryKeyCondition(node.WhereClause, tableDefinition)
 
-	rows := b.getRows(tree, condition, tableDefinition)
+	// use pk condition get data from tree
+	rows := *b.getRows(tree, condition, tableDefinition)
 
+	// rebuild result rows just return rows that you want
+	columns := node.Columns
+	for _, row :=  range rows {
+		for _, column := range columns {
+			if column.ColumnName == row
+		}
+	}
+	return &result
 }
 
 func (b *DataBase) processInsert(node sqlparser.InsertNode) uint32 {
@@ -168,20 +180,60 @@ func (b *DataBase) getPrimeryKeyCondition(clause []*sqlparser.BinaryOpNode, defi
 	return nil, fmt.Errorf("No primary key column found")
 }
 
-func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpNode, definition *SqlTableDefinition) *[][]any {
+func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpNode, definition *SqlTableDefinition) *[]map[string]interface{} {
 	right := condition.Right.(*sqlparser.LiteralNode)
 	priKey := right.Value.(uint32)
 	all, _ := tree.SearchAll(priKey)
 
 	if all != nil {
-		rows := make([][]any, 0)
+		rows := make([]map[string]interface{}, 0)
 		for _, bytes := range all.([][]byte) {
-			append(rows, deserializeRow(definition, bytes))
+			// deserialize
+			rows = append(rows, deserializeRow(definition, bytes))
 		}
 		return &rows
 	}
 	log.Fatal("can't found data")
 	return nil
+}
+
+func deserializeRow(definition *SqlTableDefinition, bytes []byte) map[string]interface{} {
+	// check row size
+	rowSize := getRowSize(definition)
+	if rowSize < len(bytes) {
+		log.Fatalf("Row size mismatch, row size: %d, expected row size: %d", len(bytes), rowSize)
+	}
+
+	// from bytes to typed date (use map here)
+	result := make(map[string]interface{})
+	columns := definition.columns
+	cur_position := 0
+	for _, column := range columns {
+		if column.dataType == sqlparser.INT {
+			result[column.name] = bytes[cur_position:INT_SIZE]
+			cur_position += INT_SIZE
+		} else if column.dataType == sqlparser.CHAR {
+			result[column.name] = bytes[cur_position : cur_position+CHAR_SIZE+CHAR_LENGTH]
+			cur_position += CHAR_LENGTH + CHAR_LENGTH
+		} else {
+			log.Fatal("Unknown column type:", column.dataType)
+		}
+	}
+	return result
+}
+
+func getRowSize(definition *SqlTableDefinition) int {
+	size := 0
+	for _, column := range definition.columns {
+		if column.dataType == sqlparser.INT {
+			size += INT_SIZE
+		} else if column.dataType == sqlparser.CHAR {
+			size += CHAR_SIZE + CHAR_LENGTH
+		} else {
+			log.Fatal("Unknown column type:", column.dataType)
+		}
+	}
+	return size
 }
 
 func getPriName(definition *SqlTableDefinition) (string, error) {

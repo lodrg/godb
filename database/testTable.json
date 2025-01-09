@@ -1,0 +1,1 @@
+{"tableName":"testTable","columns":[{"name":"id","dataType":"INT","primaryKey":true},{"name":"name","dataType":"CHAR","primaryKey":false}]}

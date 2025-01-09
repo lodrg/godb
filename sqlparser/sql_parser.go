@@ -122,6 +122,7 @@ func (p *SQLParser) parseSelect() (*SelectNode, error) {
 func (p *SQLParser) parseColumnList() ([]*ColumnNode, error) {
 	columnList := []*ColumnNode{}
 	if p.match(WILDCARD) {
+		p.next()
 		columnList = append(columnList, newColumnNode("*", "", WILDCARDN))
 	} else {
 		for {

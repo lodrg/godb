@@ -18,13 +18,13 @@ const (
 
 type ExecuteResult struct {
 	resultType      ResultType
-	rows            *[][]any
+	rows            map[string]interface{}
 	affectedRows    uint32
 	tableDefinition *SqlTableDefinition
 	slqParsed       *sqlparser.ASTNode
 }
 
-func NewExecuteResult(resultType ResultType, rowsData *[][]any, affectedrow uint32, tableDefinition *SqlTableDefinition, sqlParsed *sqlparser.ASTNode) ExecuteResult {
+func NewExecuteResult(resultType ResultType, rowsData map[string]interface{}, affectedrow uint32, tableDefinition *SqlTableDefinition, sqlParsed *sqlparser.ASTNode) ExecuteResult {
 	return ExecuteResult{
 		resultType:      resultType,
 		rows:            rowsData,
@@ -34,7 +34,7 @@ func NewExecuteResult(resultType ResultType, rowsData *[][]any, affectedrow uint
 	}
 }
 
-func ForSelect(rowsData *[][]any, tableDefinition *SqlTableDefinition, sqlParsed *sqlparser.ASTNode) ExecuteResult {
+func ForSelect(rowsData map[string]interface{}, tableDefinition *SqlTableDefinition, sqlParsed *sqlparser.ASTNode) ExecuteResult {
 	return NewExecuteResult(SELECT, rowsData, 0, tableDefinition, sqlParsed)
 }
 
@@ -46,6 +46,6 @@ func ForCreate(tableDefinition *SqlTableDefinition) ExecuteResult {
 	return NewExecuteResult(CREATE, nil, 0, tableDefinition, nil)
 }
 func ForError(errorMessage string) ExecuteResult {
-	rows := [][]any{{errorMessage}}
-	return NewExecuteResult(ERROR, &rows, 0, nil, nil)
+	rows := map[string]interface{}{"error": errorMessage}
+	return NewExecuteResult(ERROR, rows, 0, nil, nil)
 }

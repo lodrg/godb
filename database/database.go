@@ -132,8 +132,8 @@ func (b *DataBase) Execute(sql string) (ExecuteResult, error) {
 	}
 }
 
-func (b *DataBase) processSelect(node sqlparser.SelectNode) *[][]any {
-	result := make([][]any, 0)
+func (b *DataBase) processSelect(node sqlparser.SelectNode) map[string]interface{} {
+	result := make(map[string]interface{}, 0)
 	// get table def form json
 	tableDefinition := b.tableDefinitions[node.TableName]
 	// get tree
@@ -146,24 +146,32 @@ func (b *DataBase) processSelect(node sqlparser.SelectNode) *[][]any {
 	condition, _ := b.getPrimeryKeyCondition(node.WhereClause, tableDefinition)
 
 	// use pk condition get data from tree
-	rows := *b.getRows(tree, condition, tableDefinition)
+	rows := b.getRows(tree, condition, tableDefinition)
 
 	// rebuild result rows just return rows that you want
 	columns := node.Columns
-	for _, row :=  range rows {
+	for _, row := range rows {
+		// 处理 SELECT * 的情况
+		if len(columns) == 1 && columns[0].ColumnName == "*" {
+			result = row
+			break // 因为只需要一行数据，所以可以直接break
+		}
+		// 处理指定列
 		for _, column := range columns {
-			if column.ColumnName == row
+			if value, exits := row[column.ColumnName]; exits {
+				result[column.ColumnName] = value
+			}
 		}
 	}
-	return &result
+	return result
 }
 
 func (b *DataBase) processInsert(node sqlparser.InsertNode) uint32 {
-
+	panic("TODO: processInsert")
 }
 
 func (b *DataBase) prcessCreateTable(node sqlparser.CreateTbaleNode) {
-
+	panic("TODO: processCreate")
 }
 
 func (b *DataBase) getPrimeryKeyCondition(clause []*sqlparser.BinaryOpNode, definition *SqlTableDefinition) (*sqlparser.BinaryOpNode, error) {
@@ -180,7 +188,7 @@ func (b *DataBase) getPrimeryKeyCondition(clause []*sqlparser.BinaryOpNode, defi
 	return nil, fmt.Errorf("No primary key column found")
 }
 
-func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpNode, definition *SqlTableDefinition) *[]map[string]interface{} {
+func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpNode, definition *SqlTableDefinition) []map[string]interface{} {
 	right := condition.Right.(*sqlparser.LiteralNode)
 	priKey := right.Value.(uint32)
 	all, _ := tree.SearchAll(priKey)
@@ -191,7 +199,7 @@ func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpN
 			// deserialize
 			rows = append(rows, deserializeRow(definition, bytes))
 		}
-		return &rows
+		return rows
 	}
 	log.Fatal("can't found data")
 	return nil

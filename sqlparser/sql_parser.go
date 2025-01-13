@@ -297,15 +297,21 @@ func (p *SQLParser) parsePlainStringList() []string {
 	return stringList
 }
 
-func (p *SQLParser) parseValueList() []string {
-	values := make([]string, 0)
+func (p *SQLParser) parseValueList() []interface{} {
+	values := make([]interface{}, 0)
 
 	for {
 		if p.match(INTEGER) {
-			val := p.peek().Value
-			values = append(values, val)
+			token := p.peek()
+			// 直接转换为整数类型
+			intVal, err := strconv.ParseUint(token.Value, 10, 32)
+			if err != nil {
+				panic("Invalid integer value: " + token.Value)
+			}
+			values = append(values, uint32(intVal))
 			p.next()
 		} else if p.match(STRING) {
+			// 字符串值直接存储
 			values = append(values, p.peek().Value)
 			p.next()
 		} else {

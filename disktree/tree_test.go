@@ -25,7 +25,9 @@ func TestTree(t *testing.T) {
 	tree.Insert(44, []byte("44"))
 	tree.Insert(55, []byte("55"))
 
-	tree.Search(33)
-
+	all, b := tree.SearchAll(33)
+	if b {
+		log.Printf("search all result : %x \n", all)
+	}
 	tree.Print()
 }

@@ -2,6 +2,7 @@ package sqlparser
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -40,10 +41,10 @@ func newIdentifierNode(name string) *IdentifierNode {
 type InsertNode struct {
 	TableName string
 	Columns   []string
-	Values    []string
+	Values    []interface{}
 }
 
-func newInsertNode(tableName string, columns []string, values []string) *InsertNode {
+func newInsertNode(tableName string, columns []string, values []interface{}) *InsertNode {
 	return &InsertNode{
 		TableName: tableName,
 		Columns:   columns,
@@ -157,7 +158,20 @@ func (n *InsertNode) String() string {
 	}
 
 	sb.WriteString(" VALUES (")
-	sb.WriteString(strings.Join(n.Values, ", "))
+	// 转换 interface{} 到字符串
+	strValues := make([]string, len(n.Values))
+	for i, v := range n.Values {
+		switch val := v.(type) {
+		case uint32:
+			strValues[i] = strconv.FormatUint(uint64(val), 10)
+		case string:
+			strValues[i] = "'" + val + "'" // 字符串需要加引号
+		default:
+			strValues[i] = fmt.Sprintf("%v", val)
+		}
+	}
+
+	sb.WriteString(strings.Join(strValues, ", "))
 	sb.WriteString(")")
 
 	return sb.String()

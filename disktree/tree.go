@@ -95,7 +95,7 @@ func (bp *BPTree) writeMetadata() {
 
 // Insert 插入键值对
 func (t *BPTree) Insert(key uint32, value []byte) uint32 {
-	fmt.Printf("Attempting to insert key: %d, value: %s\n", key, value)
+	fmt.Printf("Attempting to insert key: %d, value: %s , value bytes: %x \n", key, value, value)
 	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber)
 
 	result := root.Insert(key, value)

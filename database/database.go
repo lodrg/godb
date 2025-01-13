@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"godb/disktree"
 	f "godb/file"
+	"godb/logger"
 	"godb/sqlparser"
 	"log"
 	"os"
@@ -153,13 +154,12 @@ func (b *DataBase) processSelect(node *sqlparser.SelectNode) map[string]interfac
 	}
 	// find where from table def, and hit pk
 	condition, _ := b.getPrimeryKeyCondition(node.WhereClause, tableDefinition)
-	//fmt.Printf("tableDef: %v \n", tableDefinition)
-	//fmt.Printf("condition: %v \n", condition)
 
 	// use pk condition get data from tree
 	rows := b.getRows(tree, condition, tableDefinition)
 
-	fmt.Printf("rows: %v \n", rows)
+	//fmt.Printf("rows: %v \n", rows)
+	logger.Debug("rows: %v \n", rows)
 	// rebuild result rows just return rows that you want
 	columns := node.Columns
 	for _, row := range rows {
@@ -175,7 +175,8 @@ func (b *DataBase) processSelect(node *sqlparser.SelectNode) map[string]interfac
 			}
 		}
 	}
-	fmt.Printf("result: %v\n", result)
+	//fmt.Printf("result: %v\n", result)
+	logger.Debug("result: %v\n", result)
 	return result
 }
 
@@ -186,7 +187,7 @@ func (b *DataBase) processInsert(node *sqlparser.InsertNode) uint32 {
 	tree := b.tableTrees[node.TableName]
 
 	// format values
-	values := make(map[string]string)
+	values := make(map[string]interface{}, 0)
 
 	if len(node.Columns) == 0 {
 		// no columns in sql
@@ -224,7 +225,22 @@ func (b *DataBase) processInsert(node *sqlparser.InsertNode) uint32 {
 	for _, col := range tableDefinition.Columns {
 		if col.IsPrimaryKey {
 			if val, exists := values[col.Name]; exists {
-				pkValue = val
+				switch col.DataType {
+				case TypeInt:
+					if intVal, ok := val.(uint32); ok {
+						pkValue = strconv.FormatUint(uint64(intVal), 10)
+					} else {
+						panic(fmt.Sprintf("invalid type for primary key column %s, expected uint32", col.Name))
+					}
+				case TypeChar:
+					if strVal, ok := val.(string); ok {
+						pkValue = strVal
+					} else {
+						panic(fmt.Sprintf("invalid type for primary key column %s, expected string", col.Name))
+					}
+				default:
+					panic(fmt.Sprintf("unsupported primary key type for column %s", col.Name))
+				}
 				pkColumn = col
 				foundPK = true
 				break
@@ -249,7 +265,7 @@ func (b *DataBase) processInsert(node *sqlparser.InsertNode) uint32 {
 		log.Fatal("duplicate primary key found")
 	}
 
-	bufRecord, err := b.makeBufferRecord(tableDefinition, values)
+	bufRecord := b.serializeRow(values, tableDefinition)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -280,11 +296,14 @@ func (b *DataBase) getPrimeryKeyCondition(clause []*sqlparser.BinaryOpNode, defi
 
 func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpNode, definition *SqlTableDefinition) []map[string]interface{} {
 	right := condition.Right.(*sqlparser.LiteralNode)
-	fmt.Printf("rightvalue: %v \n", right.Value)
+	logger.Debug("rightvalue: %v \n", right.Value)
 	priKey := right.Value.(uint32)
-	fmt.Printf("priKey: %v \n", priKey)
+	logger.Debug("priKey: %v \n", priKey)
 	all, _ := tree.SearchAll(priKey)
-	fmt.Printf("all: %v \n", all)
+	logger.Debug("all: %v \n", all)
+	logger.Debug("all: %x \n", all)
+	logger.Debug("all: %x \n", all)
+	logger.Debug("df")
 
 	if all != nil {
 		rows := make([]map[string]interface{}, 0)
@@ -292,7 +311,8 @@ func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpN
 			// deserialize
 			rows = append(rows, deserializeRow(definition, bytes))
 		}
-		fmt.Printf("rows: %v \n", rows)
+		//fmt.Printf("rows: %v \n", rows)
+		logger.Debug("rows: %v \n", rows)
 		return rows
 	}
 	log.Fatal("can't found data")
@@ -333,6 +353,35 @@ func (b *DataBase) makeBufferRecord(definition *SqlTableDefinition, values map[s
 	return buf, nil
 }
 
+func (b *DataBase) serializeRow(record map[string]interface{}, definition *SqlTableDefinition) *bytes.Buffer {
+	buf := new(bytes.Buffer)
+
+	for _, column := range definition.Columns {
+		switch column.DataType {
+		case TypeInt:
+			// 写入整数，固定4字节
+			value := record[column.Name].(uint32) // 类型断言
+			data := make([]byte, INT_SIZE)
+			binary.BigEndian.PutUint32(data, value)
+			buf.Write(data)
+
+		case TypeChar:
+			// 写入字符串，固定长度(CHAR_SIZE + CHAR_LENGTH)
+			value := record[column.Name].(string)
+			// 创建固定长度的字节数组
+			data := make([]byte, CHAR_SIZE+CHAR_LENGTH)
+			// 复制字符串内容，如果超出长度会被截断
+			copy(data, []byte(value))
+			buf.Write(data)
+
+		default:
+			log.Fatal("SerializeRow Unknown column type:", column.DataType)
+		}
+	}
+
+	return buf
+}
+
 func deserializeRow(definition *SqlTableDefinition, bytes []byte) map[string]interface{} {
 	// check row size
 	rowSize := getRowSize(definition)
@@ -340,18 +389,41 @@ func deserializeRow(definition *SqlTableDefinition, bytes []byte) map[string]int
 		log.Fatalf("Row size mismatch, row size: %d, expected row size: %d", len(bytes), rowSize)
 	}
 
-	// from bytes to typed date (use map here)
+	// from bytes to typed data
 	result := make(map[string]interface{})
 	columns := definition.Columns
-	cur_position := 0
+	curPosition := 0
+
 	for _, column := range columns {
-		if column.DataType == TypeInt {
-			result[column.Name] = bytes[cur_position:INT_SIZE]
-			cur_position += INT_SIZE
-		} else if column.DataType == TypeChar {
-			result[column.Name] = bytes[cur_position : cur_position+CHAR_SIZE+CHAR_LENGTH]
-			cur_position += CHAR_LENGTH + CHAR_LENGTH
-		} else {
+		switch column.DataType {
+		case TypeInt:
+			// 将4个字节转换为uint32
+			if curPosition+INT_SIZE <= len(bytes) {
+				value := binary.BigEndian.Uint32(bytes[curPosition : curPosition+INT_SIZE])
+				result[column.Name] = value
+				curPosition += INT_SIZE
+			}
+
+		case TypeChar:
+			// 处理字符串类型，去除空字节
+			if curPosition+CHAR_SIZE+CHAR_LENGTH <= len(bytes) {
+				strBytes := bytes[curPosition : curPosition+CHAR_SIZE+CHAR_LENGTH]
+				// 找到第一个null字节或者结束位置
+				endPos := 0
+				for i, b := range strBytes {
+					if b == 0 {
+						endPos = i
+						break
+					}
+				}
+				if endPos == 0 {
+					endPos = len(strBytes)
+				}
+				result[column.Name] = string(strBytes[:endPos])
+				curPosition += CHAR_LENGTH + CHAR_LENGTH
+			}
+
+		default:
 			log.Fatal("DeserializeRow Unknown column type:", column.DataType)
 		}
 	}

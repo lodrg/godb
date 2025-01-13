@@ -1,6 +1,8 @@
 package database
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"godb/disktree"
@@ -9,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -106,9 +109,9 @@ func (b *DataBase) getRowSize(name string) uint32 {
 	for _, column := range tableDefinition.Columns {
 		//fmt.Printf("column name: %v \n", column.Name)
 		//fmt.Printf("column type: %v \n", column.DataType)
-		if column.DataType == sqlparser.INT {
+		if column.DataType == TypeInt {
 			rowSize += INT_SIZE
-		} else if column.DataType == sqlparser.CHAR {
+		} else if column.DataType == TypeChar {
 			rowSize += CHAR_SIZE + CHAR_LENGTH
 		} else {
 			log.Fatal("Unknown column type:", column.DataType)
@@ -123,13 +126,13 @@ func (b *DataBase) Execute(sql string) (ExecuteResult, error) {
 		log.Fatal(err)
 	}
 	switch Node := ASTNode.(type) {
-	case sqlparser.SelectNode:
+	case *sqlparser.SelectNode:
 		result := b.processSelect(Node)
 		return ForSelect(result, b.tableDefinitions[Node.TableName], &ASTNode), nil
-	case sqlparser.InsertNode:
+	case *sqlparser.InsertNode:
 		affectedrows := b.processInsert(Node)
 		return ForInsert(affectedrows, b.tableDefinitions[Node.TableName]), nil
-	case sqlparser.CreateTbaleNode:
+	case *sqlparser.CreateTableNode:
 		b.prcessCreateTable(Node)
 		return ForCreate(b.tableDefinitions[Node.TableName]), nil
 	default:
@@ -138,7 +141,7 @@ func (b *DataBase) Execute(sql string) (ExecuteResult, error) {
 	}
 }
 
-func (b *DataBase) processSelect(node sqlparser.SelectNode) map[string]interface{} {
+func (b *DataBase) processSelect(node *sqlparser.SelectNode) map[string]interface{} {
 	result := make(map[string]interface{}, 0)
 	// get table def form json
 	tableDefinition := b.tableDefinitions[node.TableName]
@@ -150,10 +153,13 @@ func (b *DataBase) processSelect(node sqlparser.SelectNode) map[string]interface
 	}
 	// find where from table def, and hit pk
 	condition, _ := b.getPrimeryKeyCondition(node.WhereClause, tableDefinition)
+	//fmt.Printf("tableDef: %v \n", tableDefinition)
+	//fmt.Printf("condition: %v \n", condition)
 
 	// use pk condition get data from tree
 	rows := b.getRows(tree, condition, tableDefinition)
 
+	fmt.Printf("rows: %v \n", rows)
 	// rebuild result rows just return rows that you want
 	columns := node.Columns
 	for _, row := range rows {
@@ -169,14 +175,91 @@ func (b *DataBase) processSelect(node sqlparser.SelectNode) map[string]interface
 			}
 		}
 	}
+	fmt.Printf("result: %v\n", result)
 	return result
 }
 
-func (b *DataBase) processInsert(node sqlparser.InsertNode) uint32 {
-	panic("TODO: processInsert")
+func (b *DataBase) processInsert(node *sqlparser.InsertNode) uint32 {
+	// get table def form json
+	tableDefinition := b.tableDefinitions[node.TableName]
+	// get tree
+	tree := b.tableTrees[node.TableName]
+
+	// format values
+	values := make(map[string]string)
+
+	if len(node.Columns) == 0 {
+		// no columns in sql
+		if len(node.Values) != len(tableDefinition.Columns) {
+			panic(fmt.Sprintf("value count (%d) doesn't match column count (%d)",
+				len(node.Values), len(tableDefinition.Columns)))
+		}
+		for i, column := range tableDefinition.Columns {
+			values[column.Name] = node.Values[i]
+		}
+	} else {
+		// have columns in sql
+		if len(node.Values) != len(node.Columns) {
+			panic(fmt.Sprintf("value count (%d) doesn't match column count (%d)",
+				len(node.Values), len(tableDefinition.Columns)))
+		}
+		for i, colName := range node.Columns {
+			values[colName] = node.Values[i]
+		}
+
+		// every values is needed in sql
+		// TODO: support null in future
+		for _, col := range tableDefinition.Columns {
+			if _, exists := values[col.Name]; !exists {
+				panic(fmt.Sprintf("missing value for column %s", col.Name))
+			}
+		}
+	}
+
+	// find pk value
+	var pkValue string
+	var pkColumn SqlColumnDefinition
+	var foundPK bool
+
+	for _, col := range tableDefinition.Columns {
+		if col.IsPrimaryKey {
+			if val, exists := values[col.Name]; exists {
+				pkValue = val
+				pkColumn = col
+				foundPK = true
+				break
+			}
+			panic(fmt.Sprintf("missing value for column %s", col.Name))
+		}
+	}
+
+	if !foundPK {
+		panic(fmt.Sprintf("missing value for column %s", pkColumn.Name))
+	}
+
+	// only uint32 as pk
+	val, err := strconv.ParseUint(pkValue, 10, 32)
+	if err != nil {
+		panic(fmt.Sprintf("invalid primary key value: %s (must be a positive integer <= %d)",
+			pkValue, uint32(^uint32(0))))
+	}
+	key := uint32(val)
+
+	if _, exists := tree.Search(key); exists {
+		log.Fatal("duplicate primary key found")
+	}
+
+	bufRecord, err := b.makeBufferRecord(tableDefinition, values)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rows := tree.Insert(key, bufRecord.Bytes())
+	//panic("TODO: processInsert")
+	return rows
 }
 
-func (b *DataBase) prcessCreateTable(node sqlparser.CreateTbaleNode) {
+func (b *DataBase) prcessCreateTable(node *sqlparser.CreateTableNode) {
 	panic("TODO: processCreate")
 }
 
@@ -186,9 +269,10 @@ func (b *DataBase) getPrimeryKeyCondition(clause []*sqlparser.BinaryOpNode, defi
 		log.Fatal(err)
 	}
 	for _, node := range clause {
-		left := node.Left.(sqlparser.ColumnNode)
-		if left.ColumnName == priKeyName {
-			return node, nil
+		if left, ok := node.Left.(*sqlparser.ColumnNode); ok {
+			if left.ColumnName == priKeyName {
+				return node, nil
+			}
 		}
 	}
 	return nil, fmt.Errorf("No primary key column found")
@@ -196,8 +280,11 @@ func (b *DataBase) getPrimeryKeyCondition(clause []*sqlparser.BinaryOpNode, defi
 
 func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpNode, definition *SqlTableDefinition) []map[string]interface{} {
 	right := condition.Right.(*sqlparser.LiteralNode)
+	fmt.Printf("rightvalue: %v \n", right.Value)
 	priKey := right.Value.(uint32)
+	fmt.Printf("priKey: %v \n", priKey)
 	all, _ := tree.SearchAll(priKey)
+	fmt.Printf("all: %v \n", all)
 
 	if all != nil {
 		rows := make([]map[string]interface{}, 0)
@@ -205,10 +292,45 @@ func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpN
 			// deserialize
 			rows = append(rows, deserializeRow(definition, bytes))
 		}
+		fmt.Printf("rows: %v \n", rows)
 		return rows
 	}
 	log.Fatal("can't found data")
 	return nil
+}
+
+func (b *DataBase) makeBufferRecord(definition *SqlTableDefinition, values map[string]string) (bytes.Buffer, error) {
+	record := make([]string, len(definition.Columns))
+	for i, col := range definition.Columns {
+		if val, exists := values[col.Name]; exists {
+			// 验证值是否符合列的数据类型
+			if err := col.ValidateValue(val); err != nil {
+				panic(err.Error())
+			}
+			record[i] = val
+		} else {
+			//if !col.IsNullable {
+			//	panic(fmt.Sprintf("missing value for non-nullable column %s", col.Name))
+			//}
+			record[i] = ""
+		}
+	}
+
+	// 将记录序列化为[]byte
+	var buf bytes.Buffer
+
+	// 写入字段数量
+	binary.Write(&buf, binary.LittleEndian, uint16(len(record)))
+
+	// 写入每个字段
+	for _, field := range record {
+		// 写入字段长度
+		binary.Write(&buf, binary.LittleEndian, uint16(len(field)))
+		// 写入字段内容
+		buf.WriteString(field)
+	}
+
+	return buf, nil
 }
 
 func deserializeRow(definition *SqlTableDefinition, bytes []byte) map[string]interface{} {
@@ -223,10 +345,10 @@ func deserializeRow(definition *SqlTableDefinition, bytes []byte) map[string]int
 	columns := definition.Columns
 	cur_position := 0
 	for _, column := range columns {
-		if column.DataType == sqlparser.INT {
+		if column.DataType == TypeInt {
 			result[column.Name] = bytes[cur_position:INT_SIZE]
 			cur_position += INT_SIZE
-		} else if column.DataType == sqlparser.CHAR {
+		} else if column.DataType == TypeChar {
 			result[column.Name] = bytes[cur_position : cur_position+CHAR_SIZE+CHAR_LENGTH]
 			cur_position += CHAR_LENGTH + CHAR_LENGTH
 		} else {
@@ -239,9 +361,9 @@ func deserializeRow(definition *SqlTableDefinition, bytes []byte) map[string]int
 func getRowSize(definition *SqlTableDefinition) int {
 	size := 0
 	for _, column := range definition.Columns {
-		if column.DataType == sqlparser.INT {
+		if column.DataType == TypeInt {
 			size += INT_SIZE
-		} else if column.DataType == sqlparser.CHAR {
+		} else if column.DataType == TypeChar {
 			size += CHAR_SIZE + CHAR_LENGTH
 		} else {
 			log.Fatal("getRowSize Unknown column type:", column.DataType)

@@ -293,7 +293,7 @@ func TestCreateTableNode(t *testing.T) {
 		{Name: "name", DataType: CHAR, PrimaryKey: false},
 	}
 
-	node := newCreateTbaleNode("users", columns)
+	node := newCreateTableNode("users", columns)
 
 	if node.TableName != "users" {
 		t.Errorf("Expected table name 'users', got %s", node.TableName)
@@ -357,5 +357,180 @@ func BenchmarkParse(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+func TestSQLParser_Parse_Insert(t *testing.T) {
+	tests := []struct {
+		name    string
+		sql     string
+		want    ASTNode
+		wantErr bool
+	}{
+		{
+			name: "simple insert",
+			sql:  "INSERT INTO users (id, name) VALUES (1, 'david')",
+			want: &InsertNode{
+				TableName: "users",
+				Columns:   []string{"id", "name"},
+				Values:    []string{"1", "david"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "insert without columns",
+			sql:  "INSERT INTO users VALUES (1, 'david')",
+			want: &InsertNode{
+				TableName: "users",
+				Columns:   []string{},
+				Values:    []string{"1", "david"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "insert multiple values",
+			sql:  "INSERT INTO users (id, name, age) VALUES (1, 'david', 25)",
+			want: &InsertNode{
+				TableName: "users",
+				Columns:   []string{"id", "name", "age"},
+				Values:    []string{"1", "david", "25"},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Parse(tt.sql)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				gotNode, ok := got.(*InsertNode)
+				if !ok {
+					t.Errorf("Parse() got = %T, want *InsertNode", got)
+					return
+				}
+				if gotNode.TableName != tt.want.(*InsertNode).TableName {
+					t.Errorf("TableName = %v, want %v", gotNode.TableName, tt.want.(*InsertNode).TableName)
+				}
+				if !reflect.DeepEqual(gotNode.Columns, tt.want.(*InsertNode).Columns) {
+					t.Errorf("Columns = %v, want %v", gotNode.Columns, tt.want.(*InsertNode).Columns)
+				}
+				if !reflect.DeepEqual(gotNode.Values, tt.want.(*InsertNode).Values) {
+					t.Errorf("Values = %v, want %v", gotNode.Values, tt.want.(*InsertNode).Values)
+				}
+			}
+		})
+	}
+}
+
+func TestSQLParser_Parse_CreateTable(t *testing.T) {
+	tests := []struct {
+		name    string
+		sql     string
+		want    ASTNode
+		wantErr bool
+	}{
+		{
+			name: "create table with primary key",
+			sql:  "CREATE TABLE users (id INT PRIMARY KEY, name CHAR)",
+			want: &CreateTableNode{
+				TableName: "users",
+				Columns: []*ColumnDefinition{
+					{Name: "id", DataType: INT, PrimaryKey: true},
+					{Name: "name", DataType: CHAR, PrimaryKey: false},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "create table without primary key",
+			sql:  "CREATE TABLE departments (id INT, name CHAR)",
+			want: &CreateTableNode{
+				TableName: "departments",
+				Columns: []*ColumnDefinition{
+					{Name: "id", DataType: INT, PrimaryKey: false},
+					{Name: "name", DataType: CHAR, PrimaryKey: false},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "create table with multiple columns",
+			sql:  "CREATE TABLE employees (id INT PRIMARY KEY, name CHAR, age INT, dept_id INT)",
+			want: &CreateTableNode{
+				TableName: "employees",
+				Columns: []*ColumnDefinition{
+					{Name: "id", DataType: INT, PrimaryKey: true},
+					{Name: "name", DataType: CHAR, PrimaryKey: false},
+					{Name: "age", DataType: INT, PrimaryKey: false},
+					{Name: "dept_id", DataType: INT, PrimaryKey: false},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Parse(tt.sql)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				gotNode, ok := got.(*CreateTableNode)
+				if !ok {
+					t.Errorf("Parse() got = %T, want *CreateTableNode", got)
+					return
+				}
+				if gotNode.TableName != tt.want.(*CreateTableNode).TableName {
+					t.Errorf("TableName = %v, want %v", gotNode.TableName, tt.want.(*CreateTableNode).TableName)
+				}
+				if !reflect.DeepEqual(gotNode.Columns, tt.want.(*CreateTableNode).Columns) {
+					t.Errorf("Columns = %v, want %v", gotNode.Columns, tt.want.(*CreateTableNode).Columns)
+				}
+			}
+		})
+	}
+}
+
+func TestEdgeCases_InsertAndCreate(t *testing.T) {
+	tests := []struct {
+		name    string
+		sql     string
+		wantErr bool
+	}{
+		{
+			name:    "insert without table name",
+			sql:     "INSERT INTO VALUES (1, 'test')",
+			wantErr: true,
+		},
+		{
+			name:    "insert without values",
+			sql:     "INSERT INTO users (id, name)",
+			wantErr: true,
+		},
+		{
+			name:    "create table without columns",
+			sql:     "CREATE TABLE users",
+			wantErr: true,
+		},
+		{
+			name:    "create table with invalid data type",
+			sql:     "CREATE TABLE users (id INVALID_TYPE)",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse(tt.sql)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }

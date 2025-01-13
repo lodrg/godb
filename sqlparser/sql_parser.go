@@ -216,7 +216,7 @@ func (p *SQLParser) parseColumnOrLiteralOrSubquery() (ASTNode, error) {
 		return p.parseColumn()
 	} else if p.match(INTEGER) {
 		value, _ := strconv.Atoi(p.peek().Value)
-		literal := newLiteralNode(value)
+		literal := newLiteralNode(uint32(value))
 		p.next()
 		return literal, nil
 	} else if p.match(STRING) {
@@ -260,7 +260,8 @@ func (p *SQLParser) parseInsert() ASTNode {
 	p.consume(INSERT_INTO)
 	tableName, _ := p.parsePlainString()
 
-	var columns []string
+	columns := make([]string, 0)
+
 	if p.match(LEFT_PARENTHESIS) {
 		p.next()
 		columns = p.parsePlainStringList()
@@ -332,7 +333,7 @@ func (p *SQLParser) parseCreateTable() ASTNode {
 	columns := p.parseColumnDefinitions()
 	p.consume(RIGHT_PARENTHESIS)
 
-	return newCreateTbaleNode(tableName, columns)
+	return newCreateTableNode(tableName, columns)
 }
 
 func (p *SQLParser) parseColumnDefinitions() []*ColumnDefinition {

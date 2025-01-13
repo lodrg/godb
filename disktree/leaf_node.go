@@ -31,15 +31,15 @@ func NewLeafNode(order uint32, valueLength uint32, pager *f.DiskPager, pageNum u
 }
 
 // Insert 实现叶子节点的插入
-func (n *DiskLeafNode) Insert(key uint32, value string) *DiskInsertResult {
+func (n *DiskLeafNode) Insert(key uint32, value []byte) *DiskInsertResult {
 	insertIndex := 0
 	for insertIndex < len(n.Keys) && n.Keys[insertIndex] < key {
 		insertIndex++
 	}
-	valueByte := []byte(value)
+
 	// 如果键已存在，更新值
 	if insertIndex < len(n.Keys) && n.Keys[insertIndex] == key {
-		n.Values[insertIndex] = valueByte
+		n.Values[insertIndex] = value
 		return &DiskInsertResult{
 			Key:      n.Keys[0], // 分裂键为新节点的第一个键
 			DiskNode: n,
@@ -53,7 +53,7 @@ func (n *DiskLeafNode) Insert(key uint32, value string) *DiskInsertResult {
 
 	n.Values = append(n.Values, nil)
 	copy(n.Values[insertIndex+1:], n.Values[insertIndex:])
-	n.Values[insertIndex] = valueByte
+	n.Values[insertIndex] = value
 	fmt.Println("values :", n.Values)
 
 	if err := n.WriteDisk(); err != nil {

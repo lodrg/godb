@@ -30,7 +30,7 @@ func NewInternalNode(order uint32, pager *f.DiskPager, pageNum uint32) *DiskInte
 }
 
 // Insert 实现内部节点的插入
-func (n *DiskInternalNode) Insert(key uint32, value string) *DiskInsertResult {
+func (n *DiskInternalNode) Insert(key uint32, value []byte) *DiskInsertResult {
 	// 找到合适的子节点
 	insertIndex := 0
 	for insertIndex < len(n.Keys) && n.Keys[insertIndex] <= key {

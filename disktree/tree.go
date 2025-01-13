@@ -94,7 +94,7 @@ func (bp *BPTree) writeMetadata() {
 }
 
 // Insert 插入键值对
-func (t *BPTree) Insert(key uint32, value string) {
+func (t *BPTree) Insert(key uint32, value []byte) uint32 {
 	fmt.Printf("Attempting to insert key: %d, value: %s\n", key, value)
 	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber)
 
@@ -129,7 +129,9 @@ func (t *BPTree) Insert(key uint32, value string) {
 			log.Fatalf("Failed to write new root: %v", err)
 		}
 		t.writeMetadata()
+		return 1
 	}
+	return 0
 }
 
 // ReadDisk 从磁盘中读取节点并返回 DiskNode（InternalNode 或 LeafNode）

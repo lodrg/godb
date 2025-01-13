@@ -1,6 +1,10 @@
 package database
 
-import "godb/sqlparser"
+import (
+	"fmt"
+	"godb/sqlparser"
+	"strings"
+)
 
 // @Title        executeResult.go
 // @Description
@@ -48,4 +52,57 @@ func ForCreate(tableDefinition *SqlTableDefinition) ExecuteResult {
 func ForError(errorMessage string) ExecuteResult {
 	rows := map[string]interface{}{"error": errorMessage}
 	return NewExecuteResult(ERROR, rows, 0, nil, nil)
+}
+
+func (r ExecuteResult) String() string {
+	switch r.resultType {
+	case SELECT:
+		return r.formatSelectResult()
+	case INSERT:
+		return r.formatInsertResult()
+	case CREATE:
+		return r.formatCreateResult()
+	case ERROR:
+		return r.formatErrorResult()
+	default:
+		return "Unknown result type"
+	}
+}
+
+// 格式化 SELECT 结果
+func (r ExecuteResult) formatSelectResult() string {
+	if r.rows == nil || len(r.rows) == 0 {
+		return "Empty set"
+	}
+
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("%d row(s) in set\n", len(r.rows)))
+
+	// 如果需要显示具体数据，可以遍历 r.rows
+	for key, value := range r.rows {
+		result.WriteString(fmt.Sprintf("%v: %v\n", key, value))
+	}
+
+	return result.String()
+}
+
+// 格式化 INSERT 结果
+func (r ExecuteResult) formatInsertResult() string {
+	return fmt.Sprintf("Query OK, %d row(s) affected", r.affectedRows)
+}
+
+// 格式化 CREATE 结果
+func (r ExecuteResult) formatCreateResult() string {
+	if r.tableDefinition == nil {
+		return "Table created"
+	}
+	return fmt.Sprintf("Table '%s' created", r.tableDefinition.TableName)
+}
+
+// 格式化 ERROR 结果
+func (r ExecuteResult) formatErrorResult() string {
+	if errorMsg, ok := r.rows["error"].(string); ok {
+		return fmt.Sprintf("ERROR: %s", errorMsg)
+	}
+	return "ERROR: Unknown error occurred"
 }

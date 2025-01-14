@@ -302,7 +302,6 @@ func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpN
 	all, _ := tree.SearchAll(priKey)
 	logger.Debug("all: %v \n", all)
 	logger.Debug("all: %x \n", all)
-	logger.Debug("all: %x \n", all)
 	logger.Debug("df")
 
 	if all != nil {

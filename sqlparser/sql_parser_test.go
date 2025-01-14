@@ -373,7 +373,7 @@ func TestSQLParser_Parse_Insert(t *testing.T) {
 			want: &InsertNode{
 				TableName: "users",
 				Columns:   []string{"id", "name"},
-				Values:    []string{"1", "david"},
+				Values:    []interface{}{"1", "david"},
 			},
 			wantErr: false,
 		},
@@ -383,7 +383,7 @@ func TestSQLParser_Parse_Insert(t *testing.T) {
 			want: &InsertNode{
 				TableName: "users",
 				Columns:   []string{},
-				Values:    []string{"1", "david"},
+				Values:    []interface{}{"1", "david"},
 			},
 			wantErr: false,
 		},
@@ -393,7 +393,7 @@ func TestSQLParser_Parse_Insert(t *testing.T) {
 			want: &InsertNode{
 				TableName: "users",
 				Columns:   []string{"id", "name", "age"},
-				Values:    []string{"1", "david", "25"},
+				Values:    []interface{}{"1", "david", "25"},
 			},
 			wantErr: false,
 		},

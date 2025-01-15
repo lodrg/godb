@@ -55,7 +55,7 @@ func (n *DiskLeafNode) Insert(key uint32, value []byte) *DiskInsertResult {
 	n.Values = append(n.Values, nil)
 	copy(n.Values[insertIndex+1:], n.Values[insertIndex:])
 	n.Values[insertIndex] = value
-	logger.Debug("values :", n.Values)
+	logger.Debug("values : %x \n", n.Values)
 	logger.Debug("values : %x \n", n.Values)
 
 	if err := n.WriteDisk(); err != nil {
@@ -190,9 +190,9 @@ func (n *DiskLeafNode) WriteDisk() error {
 
 	// 写入值 (value)
 	//fmt.Println("value length:", len(n.Values))
-	logger.Debug("value length:", valueLength)
+	logger.Debug("value length: %v", valueLength)
 	for _, value := range n.Values {
-		fmt.Println("value:", string(value))
+		logger.Debug("value: %v", string(value))
 		if n.ValueLength < uint32(len(value)) {
 			log.Fatalf("value length larger than fixed length: valueLength: %d value: %d", n.ValueLength, len(value))
 		} else if n.ValueLength >= uint32(len(value)) {
@@ -210,9 +210,9 @@ func (n *DiskLeafNode) WriteDisk() error {
 	}
 
 	// 将缓冲区内容写入磁盘
-	fmt.Println("buffer:", buffer.Bytes())
+	logger.Debug("buffer: %v \n", buffer.Bytes())
 	//fmt.Println("buffer:", string(buffer.Bytes()))
-	fmt.Printf("buffer: %x \n", buffer.Bytes())
+	logger.Debug("buffer: %x \n", buffer.Bytes())
 	data := buffer.Bytes()
 	if len(data) < n.DiskPager.GetPageSize() {
 		padding := make([]byte, n.DiskPager.GetPageSize()-len(data))

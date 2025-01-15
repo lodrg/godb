@@ -1,7 +1,6 @@
 package sqlparser
 
 import (
-	"fmt"
 	_ "fmt"
 	_ "go/token"
 	"strings"
@@ -232,7 +231,6 @@ func (l *SQLLexer) tryReadNextWord(expected string) bool {
 	} else {
 		word = strings.TrimSpace(string(l.input[savedPosition:l.position]))
 	}
-	fmt.Println("word:", word)
 
 	if strings.ToUpper(word) == strings.ToUpper(expected) {
 		return true

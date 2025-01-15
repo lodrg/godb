@@ -11,7 +11,7 @@ import (
 
 type ColumnDefinition struct {
 	Name       string
-	DataType   TokenType
+	DataType   DataType
 	PrimaryKey bool
 }
 

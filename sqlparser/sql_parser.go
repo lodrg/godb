@@ -371,13 +371,13 @@ func (p *SQLParser) parseColumnDefinitions() []*ColumnDefinition {
 	return columns
 }
 
-func (p *SQLParser) parseDataType() (TokenType, error) {
+func (p *SQLParser) parseDataType() (DataType, error) {
 	if p.match(INT) {
 		p.next()
-		return INT, nil
+		return TypeInt, nil
 	} else if p.match(CHAR) {
 		p.next()
-		return CHAR, nil
+		return TypeChar, nil
 	} else {
 		return 0, errors.New("unsupported data type")
 	}

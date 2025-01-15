@@ -14,10 +14,10 @@ import (
 type ResultType int
 
 const (
-	SELECT ResultType = iota
-	INSERT
-	CREATE
-	ERROR
+	Res_SELECT ResultType = iota
+	Res_INSERT
+	Res_CREATE
+	Res_ERROR
 )
 
 type ExecuteResult struct {
@@ -39,30 +39,30 @@ func NewExecuteResult(resultType ResultType, rowsData map[string]interface{}, af
 }
 
 func ForSelect(rowsData map[string]interface{}, tableDefinition *SqlTableDefinition, sqlParsed *sqlparser.ASTNode) ExecuteResult {
-	return NewExecuteResult(SELECT, rowsData, 0, tableDefinition, sqlParsed)
+	return NewExecuteResult(Res_SELECT, rowsData, 0, tableDefinition, sqlParsed)
 }
 
 func ForInsert(affected uint32, tableDefinition *SqlTableDefinition) ExecuteResult {
-	return NewExecuteResult(INSERT, nil, affected, tableDefinition, nil)
+	return NewExecuteResult(Res_INSERT, nil, affected, tableDefinition, nil)
 }
 
 func ForCreate(tableDefinition *SqlTableDefinition) ExecuteResult {
-	return NewExecuteResult(CREATE, nil, 0, tableDefinition, nil)
+	return NewExecuteResult(Res_CREATE, nil, 0, tableDefinition, nil)
 }
 func ForError(errorMessage string) ExecuteResult {
 	rows := map[string]interface{}{"error": errorMessage}
-	return NewExecuteResult(ERROR, rows, 0, nil, nil)
+	return NewExecuteResult(Res_ERROR, rows, 0, nil, nil)
 }
 
 func (r ExecuteResult) String() string {
 	switch r.resultType {
-	case SELECT:
+	case Res_SELECT:
 		return r.formatSelectResult()
-	case INSERT:
+	case Res_INSERT:
 		return r.formatInsertResult()
-	case CREATE:
+	case Res_CREATE:
 		return r.formatCreateResult()
-	case ERROR:
+	case Res_ERROR:
 		return r.formatErrorResult()
 	default:
 		return "Unknown result type"

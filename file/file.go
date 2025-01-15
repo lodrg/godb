@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"godb/logger"
 	"io"
 	"os"
 )
@@ -73,7 +74,7 @@ func (db *SimpleDB) Select(idQuery int32) (*Record, error) {
 		}
 
 		id := int32(binary.BigEndian.Uint32(idBuf))
-		fmt.Printf("id: %d\n", id)
+		logger.Debug("id: %d\n", id)
 
 		if id == idQuery {
 			name := string(bytes.TrimRight(nameBuf, "\x00"))

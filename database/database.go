@@ -8,7 +8,7 @@ import (
 	"godb/disktree"
 	f "godb/file"
 	"godb/logger"
-	"godb/sqlparser"
+	. "godb/sqlparser"
 	"log"
 	"os"
 	"path/filepath"
@@ -122,18 +122,18 @@ func (b *DataBase) getRowSize(name string) uint32 {
 }
 
 func (b *DataBase) Execute(sql string) (ExecuteResult, error) {
-	ASTNode, err := sqlparser.Parse(sql)
+	ASTNode, err := Parse(sql)
 	if err != nil {
 		log.Fatal(err)
 	}
 	switch Node := ASTNode.(type) {
-	case *sqlparser.SelectNode:
+	case *SelectNode:
 		result := b.processSelect(Node)
 		return ForSelect(result, b.tableDefinitions[Node.TableName], &ASTNode), nil
-	case *sqlparser.InsertNode:
+	case *InsertNode:
 		affectedrows := b.processInsert(Node)
 		return ForInsert(affectedrows, b.tableDefinitions[Node.TableName]), nil
-	case *sqlparser.CreateTableNode:
+	case *CreateTableNode:
 		b.prcessCreateTable(Node)
 		return ForCreate(b.tableDefinitions[Node.TableName]), nil
 	default:
@@ -142,7 +142,7 @@ func (b *DataBase) Execute(sql string) (ExecuteResult, error) {
 	}
 }
 
-func (b *DataBase) processSelect(node *sqlparser.SelectNode) map[string]interface{} {
+func (b *DataBase) processSelect(node *SelectNode) map[string]interface{} {
 	result := make(map[string]interface{}, 0)
 	// get table def form json
 	tableDefinition := b.tableDefinitions[node.TableName]
@@ -180,7 +180,8 @@ func (b *DataBase) processSelect(node *sqlparser.SelectNode) map[string]interfac
 	return result
 }
 
-func (b *DataBase) processInsert(node *sqlparser.InsertNode) uint32 {
+func (b *DataBase) processInsert(node *InsertNode) uint32 {
+	//panic("TODO: processInsert")
 	// get table def form json
 	tableDefinition := b.tableDefinitions[node.TableName]
 	// get tree
@@ -271,21 +272,58 @@ func (b *DataBase) processInsert(node *sqlparser.InsertNode) uint32 {
 	}
 
 	rows := tree.Insert(key, bufRecord.Bytes())
-	//panic("TODO: processInsert")
 	return rows
 }
 
-func (b *DataBase) prcessCreateTable(node *sqlparser.CreateTableNode) {
-	panic("TODO: processCreate")
+func (b *DataBase) prcessCreateTable(node *CreateTableNode) (*SqlTableDefinition, error) {
+	// panic("TODO: processCreate")
+	// create table definition
+	definition := NewSqlTableDefinition(node.TableName, node.Columns)
+	b.tableDefinitions[node.TableName] = definition
+
+	// create table directory
+	if _, err := os.Stat(b.dataDirectory); os.IsNotExist(err) {
+		err := os.MkdirAll(b.dataDirectory, 0755)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	// ser(json) table definition
+	jsonTableDef, err := json.Marshal(definition)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal definition: %w", err)
+	}
+
+	// json file
+	jsonfilename := filepath.Join(b.dataDirectory, node.TableName+".json")
+	err = os.WriteFile(jsonfilename, jsonTableDef, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create json table: %w", err)
+	}
+
+	// init tree
+	size := b.getRowSize(node.TableName)
+	fileName := filepath.Join(b.dataDirectory, node.TableName+".db")
+	diskPager, err := f.NewDiskPager(fileName, PAGE_SIZE, CACHE_SIZE)
+
+	if err != nil {
+		log.Fatal("Failed to allocate new page")
+	}
+	tree := disktree.NewBPTree(ORDER_SIZE, size, diskPager)
+	b.tableTrees[node.TableName] = tree
+
+	// return table definition
+	return definition, nil
 }
 
-func (b *DataBase) getPrimeryKeyCondition(clause []*sqlparser.BinaryOpNode, definition *SqlTableDefinition) (*sqlparser.BinaryOpNode, error) {
+func (b *DataBase) getPrimeryKeyCondition(clause []*BinaryOpNode, definition *SqlTableDefinition) (*BinaryOpNode, error) {
 	priKeyName, err := getPriName(definition)
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, node := range clause {
-		if left, ok := node.Left.(*sqlparser.ColumnNode); ok {
+		if left, ok := node.Left.(*ColumnNode); ok {
 			if left.ColumnName == priKeyName {
 				return node, nil
 			}
@@ -294,8 +332,8 @@ func (b *DataBase) getPrimeryKeyCondition(clause []*sqlparser.BinaryOpNode, defi
 	return nil, fmt.Errorf("No primary key column found")
 }
 
-func (b *DataBase) getRows(tree *disktree.BPTree, condition *sqlparser.BinaryOpNode, definition *SqlTableDefinition) []map[string]interface{} {
-	right := condition.Right.(*sqlparser.LiteralNode)
+func (b *DataBase) getRows(tree *disktree.BPTree, condition *BinaryOpNode, definition *SqlTableDefinition) []map[string]interface{} {
+	right := condition.Right.(*LiteralNode)
 	logger.Debug("rightvalue: %v \n", right.Value)
 	priKey := right.Value.(uint32)
 	logger.Debug("priKey: %v \n", priKey)
@@ -350,83 +388,6 @@ func (b *DataBase) makeBufferRecord(definition *SqlTableDefinition, values map[s
 	}
 
 	return buf, nil
-}
-
-func (b *DataBase) serializeRow(record map[string]interface{}, definition *SqlTableDefinition) *bytes.Buffer {
-	buf := new(bytes.Buffer)
-
-	for _, column := range definition.Columns {
-		switch column.DataType {
-		case TypeInt:
-			// 写入整数，固定4字节
-			value := record[column.Name].(uint32) // 类型断言
-			data := make([]byte, INT_SIZE)
-			binary.BigEndian.PutUint32(data, value)
-			buf.Write(data)
-
-		case TypeChar:
-			// 写入字符串，固定长度(CHAR_SIZE + CHAR_LENGTH)
-			value := record[column.Name].(string)
-			// 创建固定长度的字节数组
-			data := make([]byte, CHAR_SIZE+CHAR_LENGTH)
-			// 复制字符串内容，如果超出长度会被截断
-			copy(data, []byte(value))
-			buf.Write(data)
-
-		default:
-			log.Fatal("SerializeRow Unknown column type:", column.DataType)
-		}
-	}
-
-	return buf
-}
-
-func deserializeRow(definition *SqlTableDefinition, bytes []byte) map[string]interface{} {
-	// check row size
-	rowSize := getRowSize(definition)
-	if rowSize < len(bytes) {
-		log.Fatalf("Row size mismatch, row size: %d, expected row size: %d", len(bytes), rowSize)
-	}
-
-	// from bytes to typed data
-	result := make(map[string]interface{})
-	columns := definition.Columns
-	curPosition := 0
-
-	for _, column := range columns {
-		switch column.DataType {
-		case TypeInt:
-			// 将4个字节转换为uint32
-			if curPosition+INT_SIZE <= len(bytes) {
-				value := binary.BigEndian.Uint32(bytes[curPosition : curPosition+INT_SIZE])
-				result[column.Name] = value
-				curPosition += INT_SIZE
-			}
-
-		case TypeChar:
-			// 处理字符串类型，去除空字节
-			if curPosition+CHAR_SIZE+CHAR_LENGTH <= len(bytes) {
-				strBytes := bytes[curPosition : curPosition+CHAR_SIZE+CHAR_LENGTH]
-				// 找到第一个null字节或者结束位置
-				endPos := 0
-				for i, b := range strBytes {
-					if b == 0 {
-						endPos = i
-						break
-					}
-				}
-				if endPos == 0 {
-					endPos = len(strBytes)
-				}
-				result[column.Name] = string(strBytes[:endPos])
-				curPosition += CHAR_LENGTH + CHAR_LENGTH
-			}
-
-		default:
-			log.Fatal("DeserializeRow Unknown column type:", column.DataType)
-		}
-	}
-	return result
 }
 
 func getRowSize(definition *SqlTableDefinition) int {

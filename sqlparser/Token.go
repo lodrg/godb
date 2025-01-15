@@ -157,17 +157,3 @@ func (t TokenType) IsDataType() bool {
 		return false
 	}
 }
-
-// 添加解析函数
-func ParseDataType(s string) (TokenType, error) {
-	switch strings.TrimSpace(strings.ToUpper(s)) {
-	case "INT":
-		return INT, nil
-	case "CHAR":
-		return CHAR, nil
-	case "STRING":
-		return STRING, nil
-	default:
-		return ILLEGAL, fmt.Errorf("unknown data type: %s", s)
-	}
-}

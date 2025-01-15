@@ -289,8 +289,8 @@ func TestASTNodeCreation(t *testing.T) {
 // 测试 CreateTableNode
 func TestCreateTableNode(t *testing.T) {
 	columns := []*ColumnDefinition{
-		{Name: "id", DataType: INT, PrimaryKey: true},
-		{Name: "name", DataType: CHAR, PrimaryKey: false},
+		{Name: "id", DataType: TypeInt, PrimaryKey: true},
+		{Name: "name", DataType: TypeChar, PrimaryKey: false},
 	}
 
 	node := newCreateTableNode("users", columns)
@@ -439,8 +439,8 @@ func TestSQLParser_Parse_CreateTable(t *testing.T) {
 			want: &CreateTableNode{
 				TableName: "users",
 				Columns: []*ColumnDefinition{
-					{Name: "id", DataType: INT, PrimaryKey: true},
-					{Name: "name", DataType: CHAR, PrimaryKey: false},
+					{Name: "id", DataType: TypeInt, PrimaryKey: true},
+					{Name: "name", DataType: TypeChar, PrimaryKey: false},
 				},
 			},
 			wantErr: false,
@@ -451,8 +451,8 @@ func TestSQLParser_Parse_CreateTable(t *testing.T) {
 			want: &CreateTableNode{
 				TableName: "departments",
 				Columns: []*ColumnDefinition{
-					{Name: "id", DataType: INT, PrimaryKey: false},
-					{Name: "name", DataType: CHAR, PrimaryKey: false},
+					{Name: "id", DataType: TypeInt, PrimaryKey: false},
+					{Name: "name", DataType: TypeChar, PrimaryKey: false},
 				},
 			},
 			wantErr: false,
@@ -463,10 +463,10 @@ func TestSQLParser_Parse_CreateTable(t *testing.T) {
 			want: &CreateTableNode{
 				TableName: "employees",
 				Columns: []*ColumnDefinition{
-					{Name: "id", DataType: INT, PrimaryKey: true},
-					{Name: "name", DataType: CHAR, PrimaryKey: false},
-					{Name: "age", DataType: INT, PrimaryKey: false},
-					{Name: "dept_id", DataType: INT, PrimaryKey: false},
+					{Name: "id", DataType: TypeInt, PrimaryKey: true},
+					{Name: "name", DataType: TypeChar, PrimaryKey: false},
+					{Name: "age", DataType: TypeInt, PrimaryKey: false},
+					{Name: "dept_id", DataType: TypeInt, PrimaryKey: false},
 				},
 			},
 			wantErr: false,

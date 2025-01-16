@@ -13,7 +13,7 @@ import (
 // @Create       david 2025-01-15 10:23
 // @Update       david 2025-01-15 10:23
 
-func (b *DataBase) serializeRow(record map[string]interface{}, definition *SqlTableDefinition) *bytes.Buffer {
+func serializeRow(record map[string]interface{}, definition *SqlTableDefinition) *bytes.Buffer {
 	buf := new(bytes.Buffer)
 
 	for _, column := range definition.Columns {

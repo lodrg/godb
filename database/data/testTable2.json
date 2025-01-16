@@ -1,1 +1,1 @@
-{"tableName":"testTable2","columns":[{"name":"id","dataType":"INT","primaryKey":true},{"name":"name","dataType":"CHAR","primaryKey":false},{"name":"age","dataType":"INT","primaryKey":false}]}
+{"tableName":"testTable2","columns":[{"name":"id","dataType":"INT","primaryKey":true},{"name":"name","dataType":"CHAR","primaryKey":false},{"name":"age","dataType":"INT","primaryKey":false},{"name":"gender","dataType":"CHAR","primaryKey":false},{"name":"count","dataType":"INT","primaryKey":false}]}

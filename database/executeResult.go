@@ -21,33 +21,33 @@ const (
 )
 
 type ExecuteResult struct {
-	resultType      ResultType
-	rows            map[string]interface{}
-	affectedRows    uint32
-	tableDefinition *SqlTableDefinition
-	slqParsed       *sqlparser.ASTNode
+	resultType       ResultType
+	rows             map[string]interface{}
+	affectedRows     uint32
+	tableDefinitions []*SqlTableDefinition
+	slqParsed        *sqlparser.ASTNode
 }
 
-func NewExecuteResult(resultType ResultType, rowsData map[string]interface{}, affectedrow uint32, tableDefinition *SqlTableDefinition, sqlParsed *sqlparser.ASTNode) ExecuteResult {
+func NewExecuteResult(resultType ResultType, rowsData map[string]interface{}, affectedrow uint32, tableDefinitions []*SqlTableDefinition, sqlParsed *sqlparser.ASTNode) ExecuteResult {
 	return ExecuteResult{
-		resultType:      resultType,
-		rows:            rowsData,
-		affectedRows:    affectedrow,
-		tableDefinition: tableDefinition,
-		slqParsed:       sqlParsed,
+		resultType:       resultType,
+		rows:             rowsData,
+		affectedRows:     affectedrow,
+		tableDefinitions: tableDefinitions,
+		slqParsed:        sqlParsed,
 	}
 }
 
-func ForSelect(rowsData map[string]interface{}, tableDefinition *SqlTableDefinition, sqlParsed *sqlparser.ASTNode) ExecuteResult {
-	return NewExecuteResult(Res_SELECT, rowsData, 0, tableDefinition, sqlParsed)
+func ForSelect(rowsData map[string]interface{}, tableDefinitions []*SqlTableDefinition, sqlParsed *sqlparser.ASTNode) ExecuteResult {
+	return NewExecuteResult(Res_SELECT, rowsData, 0, tableDefinitions, sqlParsed)
 }
 
-func ForInsert(affected uint32, tableDefinition *SqlTableDefinition) ExecuteResult {
-	return NewExecuteResult(Res_INSERT, nil, affected, tableDefinition, nil)
+func ForInsert(affected uint32, tableDefinitions []*SqlTableDefinition) ExecuteResult {
+	return NewExecuteResult(Res_INSERT, nil, affected, tableDefinitions, nil)
 }
 
-func ForCreate(tableDefinition *SqlTableDefinition) ExecuteResult {
-	return NewExecuteResult(Res_CREATE, nil, 0, tableDefinition, nil)
+func ForCreate(tableDefinitions []*SqlTableDefinition) ExecuteResult {
+	return NewExecuteResult(Res_CREATE, nil, 0, tableDefinitions, nil)
 }
 func ForError(errorMessage string) ExecuteResult {
 	rows := map[string]interface{}{"error": errorMessage}
@@ -93,10 +93,27 @@ func (r ExecuteResult) formatInsertResult() string {
 
 // 格式化 CREATE 结果
 func (r ExecuteResult) formatCreateResult() string {
-	if r.tableDefinition == nil {
+	if len(r.tableDefinitions) == 0 {
 		return "Table created"
 	}
-	return fmt.Sprintf("Table '%s' created", r.tableDefinition.TableName)
+
+	var sb strings.Builder
+	tableDef := r.tableDefinitions[0]
+
+	// 添加基本信息
+	sb.WriteString(fmt.Sprintf("CREATE TABLE Result: Table '%s' created successfully.\n", tableDef.TableName))
+	sb.WriteString("Columns:\n")
+
+	// 添加列信息
+	for _, col := range tableDef.Columns {
+		sb.WriteString(fmt.Sprintf("  - %s (%s)", col.Name, col.DataType))
+		if col.IsPrimaryKey {
+			sb.WriteString(" PRIMARY KEY")
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
 }
 
 // 格式化 ERROR 结果

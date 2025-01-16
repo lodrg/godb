@@ -2,6 +2,7 @@ package file
 
 import (
 	"fmt"
+	"godb/logger"
 	"os"
 	"sync"
 )
@@ -163,7 +164,8 @@ func (dp *DiskPager) AllocateNewPage() (int, error) {
 	info, _ := dp.file.Stat()
 	dp.info = info
 
-	fmt.Printf("Allocating new page : %d\n", newPageNum)
+	//fmt.Printf("Allocating new page : %d\n", newPageNum)
+	logger.Info("total page now : %d \n", dp.totalPage)
 
 	return newPageNum, nil
 }

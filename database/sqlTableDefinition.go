@@ -25,3 +25,7 @@ func NewSqlTableDefinition(tableName string, columns []*ColumnDefinition) *SqlTa
 		Columns:   scd,
 	}
 }
+
+func (sd *SqlTableDefinition) String() string {
+	return sd.TableName
+}

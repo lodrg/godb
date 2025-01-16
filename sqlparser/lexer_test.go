@@ -1,19 +1,20 @@
 package sqlparser
 
 import (
+	"godb/entity"
 	"testing"
 )
 
 func TestLexer_BasicTokens(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected Token
+		expected entity.Token
 	}{
-		{"*", Token{Type: WILDCARD, Value: "*"}},
-		{",", Token{Type: COMMA, Value: ","}},
-		{"(", Token{Type: LEFT_PARENTHESIS, Value: "("}},
-		{")", Token{Type: RIGHT_PARENTHESIS, Value: ")"}},
-		{"=", Token{Type: EQUALS, Value: "="}},
+		{"*", entity.Token{Type: entity.WILDCARD, Value: "*"}},
+		{",", entity.Token{Type: entity.COMMA, Value: ","}},
+		{"(", entity.Token{Type: entity.LEFT_PARENTHESIS, Value: "("}},
+		{")", entity.Token{Type: entity.RIGHT_PARENTHESIS, Value: ")"}},
+		{"=", entity.Token{Type: entity.EQUALS, Value: "="}},
 	}
 
 	for _, tt := range tests {
@@ -30,15 +31,15 @@ func TestLexer_BasicTokens(t *testing.T) {
 func TestLexer_Keywords(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected Token
+		expected entity.Token
 	}{
-		{"SELECT", Token{Type: SELECT, Value: "SELECT"}},
-		{"FROM", Token{Type: FROM, Value: "FROM"}},
-		{"WHERE", Token{Type: WHERE, Value: "WHERE"}},
-		{"INSERT INTO", Token{Type: INSERT_INTO, Value: "INSERT INTO"}},
-		{"CREATE TABLE", Token{Type: CREATE_TABLE, Value: "CREATE TABLE"}},
-		{"ORDER BY", Token{Type: ORDER_BY, Value: "ORDER BY"}},
-		{"PRIMARY KEY", Token{Type: PRIMARY_KEY, Value: "PRIMARY KEY"}},
+		{"SELECT", entity.Token{Type: entity.SELECT, Value: "SELECT"}},
+		{"FROM", entity.Token{Type: entity.FROM, Value: "FROM"}},
+		{"WHERE", entity.Token{Type: entity.WHERE, Value: "WHERE"}},
+		{"INSERT INTO", entity.Token{Type: entity.INSERT_INTO, Value: "INSERT INTO"}},
+		{"CREATE TABLE", entity.Token{Type: entity.CREATE_TABLE, Value: "CREATE TABLE"}},
+		{"ORDER BY", entity.Token{Type: entity.ORDER_BY, Value: "ORDER BY"}},
+		{"PRIMARY KEY", entity.Token{Type: entity.PRIMARY_KEY, Value: "PRIMARY KEY"}},
 	}
 
 	for _, tt := range tests {
@@ -68,7 +69,7 @@ func TestLexer_Identifiers(t *testing.T) {
 		t.Run(tt.input, func(t *testing.T) {
 			lexer := NewLexer(tt.input)
 			token := lexer.NextToken()
-			if token.Type != IDENTIFIER || token.Value != tt.expected {
+			if token.Type != entity.IDENTIFIER || token.Value != tt.expected {
 				t.Errorf("wrong identifier. got=%+v, want=IDENTIFIER(%s)", token, tt.expected)
 			}
 		})
@@ -78,12 +79,12 @@ func TestLexer_Identifiers(t *testing.T) {
 func TestLexer_Literals(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected Token
+		expected entity.Token
 	}{
-		{"'John'", Token{Type: STRING, Value: "John"}},
-		{"\"Smith\"", Token{Type: STRING, Value: "Smith"}},
-		{"42", Token{Type: INTEGER, Value: "42"}},
-		{"123", Token{Type: INTEGER, Value: "123"}},
+		{"'John'", entity.Token{Type: entity.STRING, Value: "John"}},
+		{"\"Smith\"", entity.Token{Type: entity.STRING, Value: "Smith"}},
+		{"42", entity.Token{Type: entity.INTEGER, Value: "42"}},
+		{"123", entity.Token{Type: entity.INTEGER, Value: "123"}},
 	}
 
 	for _, tt := range tests {
@@ -101,34 +102,34 @@ func TestLexer_CompleteQueries(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected []Token
+		expected []entity.Token
 	}{
 		{
 			name:  "Simple SELECT",
 			input: "SELECT * FROM users",
-			expected: []Token{
-				{Type: SELECT, Value: "SELECT"},
-				{Type: WILDCARD, Value: "*"},
-				{Type: FROM, Value: "FROM"},
-				{Type: IDENTIFIER, Value: "users"},
-				{Type: EOF, Value: ""},
+			expected: []entity.Token{
+				{Type: entity.SELECT, Value: "SELECT"},
+				{Type: entity.WILDCARD, Value: "*"},
+				{Type: entity.FROM, Value: "FROM"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.EOF, Value: ""},
 			},
 		},
 		{
 			name:  "SELECT with WHERE",
 			input: "SELECT id, name FROM users WHERE age = 25",
-			expected: []Token{
-				{Type: SELECT, Value: "SELECT"},
-				{Type: IDENTIFIER, Value: "id"},
-				{Type: COMMA, Value: ","},
-				{Type: IDENTIFIER, Value: "name"},
-				{Type: FROM, Value: "FROM"},
-				{Type: IDENTIFIER, Value: "users"},
-				{Type: WHERE, Value: "WHERE"},
-				{Type: IDENTIFIER, Value: "age"},
-				{Type: EQUALS, Value: "="},
-				{Type: INTEGER, Value: "25"},
-				{Type: EOF, Value: ""},
+			expected: []entity.Token{
+				{Type: entity.SELECT, Value: "SELECT"},
+				{Type: entity.IDENTIFIER, Value: "id"},
+				{Type: entity.COMMA, Value: ","},
+				{Type: entity.IDENTIFIER, Value: "name"},
+				{Type: entity.FROM, Value: "FROM"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.WHERE, Value: "WHERE"},
+				{Type: entity.IDENTIFIER, Value: "age"},
+				{Type: entity.EQUALS, Value: "="},
+				{Type: entity.INTEGER, Value: "25"},
+				{Type: entity.EOF, Value: ""},
 			},
 		},
 	}
@@ -170,7 +171,7 @@ func TestLexer_ErrorCases(t *testing.T) {
 			lastToken := tokens[len(tokens)-1]
 
 			// 检查是否以 EOF 结束
-			if lastToken.Type != EOF {
+			if lastToken.Type != entity.EOF {
 				t.Errorf("expected EOF token for error case, got %+v", lastToken)
 			}
 		})
@@ -181,139 +182,139 @@ func TestLexer_SQLStatements(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected []Token
+		expected []entity.Token
 	}{
 		{
 			name:  "SELECT - Basic",
 			input: "SELECT id, name FROM users",
-			expected: []Token{
-				{Type: SELECT, Value: "SELECT"},
-				{Type: IDENTIFIER, Value: "id"},
-				{Type: COMMA, Value: ","},
-				{Type: IDENTIFIER, Value: "name"},
-				{Type: FROM, Value: "FROM"},
-				{Type: IDENTIFIER, Value: "users"},
-				{Type: EOF, Value: ""},
+			expected: []entity.Token{
+				{Type: entity.SELECT, Value: "SELECT"},
+				{Type: entity.IDENTIFIER, Value: "id"},
+				{Type: entity.COMMA, Value: ","},
+				{Type: entity.IDENTIFIER, Value: "name"},
+				{Type: entity.FROM, Value: "FROM"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.EOF, Value: ""},
 			},
 		},
 		{
 			name:  "SELECT - With WHERE",
 			input: "SELECT * FROM users WHERE age = 25 AND name = 'John'",
-			expected: []Token{
-				{Type: SELECT, Value: "SELECT"},
-				{Type: WILDCARD, Value: "*"},
-				{Type: FROM, Value: "FROM"},
-				{Type: IDENTIFIER, Value: "users"},
-				{Type: WHERE, Value: "WHERE"},
-				{Type: IDENTIFIER, Value: "age"},
-				{Type: EQUALS, Value: "="},
-				{Type: INTEGER, Value: "25"},
-				{Type: AND, Value: "AND"},
-				{Type: IDENTIFIER, Value: "name"},
-				{Type: EQUALS, Value: "="},
-				{Type: STRING, Value: "John"},
-				{Type: EOF, Value: ""},
+			expected: []entity.Token{
+				{Type: entity.SELECT, Value: "SELECT"},
+				{Type: entity.WILDCARD, Value: "*"},
+				{Type: entity.FROM, Value: "FROM"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.WHERE, Value: "WHERE"},
+				{Type: entity.IDENTIFIER, Value: "age"},
+				{Type: entity.EQUALS, Value: "="},
+				{Type: entity.INTEGER, Value: "25"},
+				{Type: entity.AND, Value: "AND"},
+				{Type: entity.IDENTIFIER, Value: "name"},
+				{Type: entity.EQUALS, Value: "="},
+				{Type: entity.STRING, Value: "John"},
+				{Type: entity.EOF, Value: ""},
 			},
 		},
 		{
 			name:  "SELECT - With JOIN",
 			input: "SELECT users.name, orders.amount FROM users JOIN orders ON users.id = orders.user_id",
-			expected: []Token{
-				{Type: SELECT, Value: "SELECT"},
-				{Type: IDENTIFIER, Value: "users.name"},
-				{Type: COMMA, Value: ","},
-				{Type: IDENTIFIER, Value: "orders.amount"},
-				{Type: FROM, Value: "FROM"},
-				{Type: IDENTIFIER, Value: "users"},
-				{Type: JOIN, Value: "JOIN"},
-				{Type: IDENTIFIER, Value: "orders"},
-				{Type: ON, Value: "ON"},
-				{Type: IDENTIFIER, Value: "users.id"},
-				{Type: EQUALS, Value: "="},
-				{Type: IDENTIFIER, Value: "orders.user_id"},
-				{Type: EOF, Value: ""},
+			expected: []entity.Token{
+				{Type: entity.SELECT, Value: "SELECT"},
+				{Type: entity.IDENTIFIER, Value: "users.name"},
+				{Type: entity.COMMA, Value: ","},
+				{Type: entity.IDENTIFIER, Value: "orders.amount"},
+				{Type: entity.FROM, Value: "FROM"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.JOIN, Value: "JOIN"},
+				{Type: entity.IDENTIFIER, Value: "orders"},
+				{Type: entity.ON, Value: "ON"},
+				{Type: entity.IDENTIFIER, Value: "users.id"},
+				{Type: entity.EQUALS, Value: "="},
+				{Type: entity.IDENTIFIER, Value: "orders.user_id"},
+				{Type: entity.EOF, Value: ""},
 			},
 		},
 		{
 			name:  "SELECT - With ORDER BY",
 			input: "SELECT * FROM users ORDER BY created_at",
-			expected: []Token{
-				{Type: SELECT, Value: "SELECT"},
-				{Type: WILDCARD, Value: "*"},
-				{Type: FROM, Value: "FROM"},
-				{Type: IDENTIFIER, Value: "users"},
-				{Type: ORDER_BY, Value: "ORDER BY"},
-				{Type: IDENTIFIER, Value: "created_at"},
-				{Type: EOF, Value: ""},
+			expected: []entity.Token{
+				{Type: entity.SELECT, Value: "SELECT"},
+				{Type: entity.WILDCARD, Value: "*"},
+				{Type: entity.FROM, Value: "FROM"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.ORDER_BY, Value: "ORDER BY"},
+				{Type: entity.IDENTIFIER, Value: "created_at"},
+				{Type: entity.EOF, Value: ""},
 			},
 		},
 		{
 			name:  "SELECT - With IN clause",
 			input: "SELECT * FROM users WHERE id IN (1, 2, 3)",
-			expected: []Token{
-				{Type: SELECT, Value: "SELECT"},
-				{Type: WILDCARD, Value: "*"},
-				{Type: FROM, Value: "FROM"},
-				{Type: IDENTIFIER, Value: "users"},
-				{Type: WHERE, Value: "WHERE"},
-				{Type: IDENTIFIER, Value: "id"},
-				{Type: IN, Value: "IN"},
-				{Type: LEFT_PARENTHESIS, Value: "("},
-				{Type: INTEGER, Value: "1"},
-				{Type: COMMA, Value: ","},
-				{Type: INTEGER, Value: "2"},
-				{Type: COMMA, Value: ","},
-				{Type: INTEGER, Value: "3"},
-				{Type: RIGHT_PARENTHESIS, Value: ")"},
-				{Type: EOF, Value: ""},
+			expected: []entity.Token{
+				{Type: entity.SELECT, Value: "SELECT"},
+				{Type: entity.WILDCARD, Value: "*"},
+				{Type: entity.FROM, Value: "FROM"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.WHERE, Value: "WHERE"},
+				{Type: entity.IDENTIFIER, Value: "id"},
+				{Type: entity.IN, Value: "IN"},
+				{Type: entity.LEFT_PARENTHESIS, Value: "("},
+				{Type: entity.INTEGER, Value: "1"},
+				{Type: entity.COMMA, Value: ","},
+				{Type: entity.INTEGER, Value: "2"},
+				{Type: entity.COMMA, Value: ","},
+				{Type: entity.INTEGER, Value: "3"},
+				{Type: entity.RIGHT_PARENTHESIS, Value: ")"},
+				{Type: entity.EOF, Value: ""},
 			},
 		},
 		{
 			name:  "CREATE TABLE - Basic",
 			input: "CREATE TABLE users (id INT, name CHAR)",
-			expected: []Token{
-				{Type: CREATE_TABLE, Value: "CREATE TABLE"},
-				{Type: IDENTIFIER, Value: "users"},
-				{Type: LEFT_PARENTHESIS, Value: "("},
-				{Type: IDENTIFIER, Value: "id"},
-				{Type: INT, Value: "INT"},
-				{Type: COMMA, Value: ","},
-				{Type: IDENTIFIER, Value: "name"},
-				{Type: CHAR, Value: "CHAR"},
-				{Type: RIGHT_PARENTHESIS, Value: ")"},
-				{Type: EOF, Value: ""},
+			expected: []entity.Token{
+				{Type: entity.CREATE_TABLE, Value: "CREATE TABLE"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.LEFT_PARENTHESIS, Value: "("},
+				{Type: entity.IDENTIFIER, Value: "id"},
+				{Type: entity.INT, Value: "INT"},
+				{Type: entity.COMMA, Value: ","},
+				{Type: entity.IDENTIFIER, Value: "name"},
+				{Type: entity.CHAR, Value: "CHAR"},
+				{Type: entity.RIGHT_PARENTHESIS, Value: ")"},
+				{Type: entity.EOF, Value: ""},
 			},
 		},
 		{
 			name:  "CREATE TABLE - With PRIMARY KEY",
 			input: "CREATE TABLE users (id INT PRIMARY KEY, name CHAR)",
-			expected: []Token{
-				{Type: CREATE_TABLE, Value: "CREATE TABLE"},
-				{Type: IDENTIFIER, Value: "users"},
-				{Type: LEFT_PARENTHESIS, Value: "("},
-				{Type: IDENTIFIER, Value: "id"},
-				{Type: INT, Value: "INT"},
-				{Type: PRIMARY_KEY, Value: "PRIMARY KEY"},
-				{Type: COMMA, Value: ","},
-				{Type: IDENTIFIER, Value: "name"},
-				{Type: CHAR, Value: "CHAR"},
-				{Type: RIGHT_PARENTHESIS, Value: ")"},
-				{Type: EOF, Value: ""},
+			expected: []entity.Token{
+				{Type: entity.CREATE_TABLE, Value: "CREATE TABLE"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.LEFT_PARENTHESIS, Value: "("},
+				{Type: entity.IDENTIFIER, Value: "id"},
+				{Type: entity.INT, Value: "INT"},
+				{Type: entity.PRIMARY_KEY, Value: "PRIMARY KEY"},
+				{Type: entity.COMMA, Value: ","},
+				{Type: entity.IDENTIFIER, Value: "name"},
+				{Type: entity.CHAR, Value: "CHAR"},
+				{Type: entity.RIGHT_PARENTHESIS, Value: ")"},
+				{Type: entity.EOF, Value: ""},
 			},
 		},
 		{
 			name:  "INSERT - Basic",
 			input: "INSERT INTO users VALUES (1, 'John')",
-			expected: []Token{
-				{Type: INSERT_INTO, Value: "INSERT INTO"},
-				{Type: IDENTIFIER, Value: "users"},
-				{Type: VALUES, Value: "VALUES"},
-				{Type: LEFT_PARENTHESIS, Value: "("},
-				{Type: INTEGER, Value: "1"},
-				{Type: COMMA, Value: ","},
-				{Type: STRING, Value: "John"},
-				{Type: RIGHT_PARENTHESIS, Value: ")"},
-				{Type: EOF, Value: ""},
+			expected: []entity.Token{
+				{Type: entity.INSERT_INTO, Value: "INSERT INTO"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.VALUES, Value: "VALUES"},
+				{Type: entity.LEFT_PARENTHESIS, Value: "("},
+				{Type: entity.INTEGER, Value: "1"},
+				{Type: entity.COMMA, Value: ","},
+				{Type: entity.STRING, Value: "John"},
+				{Type: entity.RIGHT_PARENTHESIS, Value: ")"},
+				{Type: entity.EOF, Value: ""},
 			},
 		},
 	}

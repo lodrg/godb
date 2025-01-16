@@ -1,4 +1,4 @@
-package database
+package entity
 
 // @Title        slqColumnDefinition.go
 // @Description
@@ -7,7 +7,6 @@ package database
 
 import (
 	"fmt"
-	. "godb/sqlparser"
 	"strconv"
 )
 

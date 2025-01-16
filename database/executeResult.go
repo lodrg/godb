@@ -2,7 +2,7 @@ package database
 
 import (
 	"fmt"
-	"godb/sqlparser"
+	. "godb/entity"
 	"strings"
 )
 
@@ -25,10 +25,10 @@ type ExecuteResult struct {
 	rows             map[string]interface{}
 	affectedRows     uint32
 	tableDefinitions []*SqlTableDefinition
-	slqParsed        *sqlparser.ASTNode
+	slqParsed        *ASTNode
 }
 
-func NewExecuteResult(resultType ResultType, rowsData map[string]interface{}, affectedrow uint32, tableDefinitions []*SqlTableDefinition, sqlParsed *sqlparser.ASTNode) ExecuteResult {
+func NewExecuteResult(resultType ResultType, rowsData map[string]interface{}, affectedrow uint32, tableDefinitions []*SqlTableDefinition, sqlParsed *ASTNode) ExecuteResult {
 	return ExecuteResult{
 		resultType:       resultType,
 		rows:             rowsData,
@@ -38,7 +38,7 @@ func NewExecuteResult(resultType ResultType, rowsData map[string]interface{}, af
 	}
 }
 
-func ForSelect(rowsData map[string]interface{}, tableDefinitions []*SqlTableDefinition, sqlParsed *sqlparser.ASTNode) ExecuteResult {
+func ForSelect(rowsData map[string]interface{}, tableDefinitions []*SqlTableDefinition, sqlParsed *ASTNode) ExecuteResult {
 	return NewExecuteResult(Res_SELECT, rowsData, 0, tableDefinitions, sqlParsed)
 }
 
@@ -107,7 +107,7 @@ func (r ExecuteResult) formatCreateResult() string {
 	// 添加列信息
 	for _, col := range tableDef.Columns {
 		sb.WriteString(fmt.Sprintf("  - %s (%s)", col.Name, col.DataType))
-		if col.IsPrimaryKey {
+		if col.IndexType == Primary {
 			sb.WriteString(" PRIMARY KEY")
 		}
 		sb.WriteString("\n")

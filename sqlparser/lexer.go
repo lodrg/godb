@@ -3,6 +3,7 @@ package sqlparser
 import (
 	_ "fmt"
 	_ "go/token"
+	. "godb/entity"
 	"strings"
 	_ "unicode"
 )
@@ -36,27 +37,27 @@ func (l *SQLLexer) NextToken() Token {
 	l.skipWhitespace()
 
 	if l.ch == 0 {
-		return newToken(EOF, "")
+		return NewToken(EOF, "")
 	}
 
 	switch l.ch {
 	case 0:
-		return newToken(EOF, "")
+		return NewToken(EOF, "")
 	case ',':
 		l.readChar()
-		return newToken(COMMA, ",")
+		return NewToken(COMMA, ",")
 	case '(':
 		l.readChar()
-		return newToken(LEFT_PARENTHESIS, "(")
+		return NewToken(LEFT_PARENTHESIS, "(")
 	case ')':
 		l.readChar()
-		return newToken(RIGHT_PARENTHESIS, ")")
+		return NewToken(RIGHT_PARENTHESIS, ")")
 	case '=':
 		l.readChar()
-		return newToken(EQUALS, "=")
+		return NewToken(EQUALS, "=")
 	case '*':
 		l.readChar()
-		return newToken(WILDCARD, "*")
+		return NewToken(WILDCARD, "*")
 	case '\'', '"':
 		return l.readString()
 	default:
@@ -93,19 +94,19 @@ func (l *SQLLexer) readKeywordOrIdent() Token {
 		switch strings.ToUpper(word) {
 		case "ORDER":
 			if l.tryReadNextWord("BY") {
-				return newToken(ORDER_BY, "ORDER BY")
+				return NewToken(ORDER_BY, "ORDER BY")
 			}
 		case "INSERT":
 			if l.tryReadNextWord("INTO") {
-				return newToken(INSERT_INTO, "INSERT INTO")
+				return NewToken(INSERT_INTO, "INSERT INTO")
 			}
 		case "CREATE":
 			if l.tryReadNextWord("TABLE") {
-				return newToken(CREATE_TABLE, "CREATE TABLE")
+				return NewToken(CREATE_TABLE, "CREATE TABLE")
 			}
 		case "PRIMARY":
 			if l.tryReadNextWord("KEY") {
-				return newToken(PRIMARY_KEY, "PRIMARY KEY")
+				return NewToken(PRIMARY_KEY, "PRIMARY KEY")
 			}
 		}
 	}
@@ -113,27 +114,27 @@ func (l *SQLLexer) readKeywordOrIdent() Token {
 	// 检查单个关键字
 	switch strings.ToUpper(word) {
 	case "SELECT":
-		return newToken(SELECT, word)
+		return NewToken(SELECT, word)
 	case "FROM":
-		return newToken(FROM, word)
+		return NewToken(FROM, word)
 	case "WHERE":
-		return newToken(WHERE, word)
+		return NewToken(WHERE, word)
 	case "JOIN":
-		return newToken(JOIN, word)
+		return NewToken(JOIN, word)
 	case "ON":
-		return newToken(ON, word)
+		return NewToken(ON, word)
 	case "VALUES":
-		return newToken(VALUES, word)
+		return NewToken(VALUES, word)
 	case "AND":
-		return newToken(AND, word)
+		return NewToken(AND, word)
 	case "IN":
-		return newToken(IN, word)
+		return NewToken(IN, word)
 	case "INT":
-		return newToken(INT, word)
+		return NewToken(INT, word)
 	case "CHAR":
-		return newToken(CHAR, word)
+		return NewToken(CHAR, word)
 	default:
-		return newToken(IDENTIFIER, word)
+		return NewToken(IDENTIFIER, word)
 	}
 }
 
@@ -172,9 +173,9 @@ func (l *SQLLexer) readString() Token {
 	if l.ch == quote {
 		str := string(l.input[position : l.position-1])
 		l.readChar()
-		return newToken(STRING, str)
+		return NewToken(STRING, str)
 	}
-	return newToken(EOF, "")
+	return NewToken(EOF, "")
 }
 
 func (l *SQLLexer) readNumber() Token {
@@ -185,7 +186,7 @@ func (l *SQLLexer) readNumber() Token {
 	}
 	// 使用 strings.TrimSpace 来去除可能的空字符
 	numberStr := strings.TrimRight(string(l.input[position:l.position-1]), "\x00")
-	return newToken(INTEGER, numberStr)
+	return NewToken(INTEGER, numberStr)
 }
 
 func (l *SQLLexer) readChar() {

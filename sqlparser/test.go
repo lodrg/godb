@@ -1,28 +1,31 @@
 package sqlparser
 
-import "fmt"
+import (
+	"fmt"
+	"godb/entity"
+)
 
 func Test() {
 	tests := []struct {
 		name     string
 		input    string
-		expected []Token
+		expected []entity.Token
 	}{
 		{
 			name:  "CREATE TABLE - With PRIMARY KEY",
 			input: "CREATE TABLE users (id INT PRIMARY KEY, name CHAR)",
-			expected: []Token{
-				{Type: CREATE_TABLE, Value: "CREATE TABLE"},
-				{Type: IDENTIFIER, Value: "users"},
-				{Type: LEFT_PARENTHESIS, Value: "("},
-				{Type: IDENTIFIER, Value: "id"},
-				{Type: INT, Value: "INT"},
-				{Type: PRIMARY_KEY, Value: "PRIMARY KEY"},
-				{Type: COMMA, Value: ","},
-				{Type: IDENTIFIER, Value: "name"},
-				{Type: CHAR, Value: "CHAR"},
-				{Type: RIGHT_PARENTHESIS, Value: ")"},
-				{Type: EOF, Value: ""},
+			expected: []entity.Token{
+				{Type: entity.CREATE_TABLE, Value: "CREATE TABLE"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.LEFT_PARENTHESIS, Value: "("},
+				{Type: entity.IDENTIFIER, Value: "id"},
+				{Type: entity.INT, Value: "INT"},
+				{Type: entity.PRIMARY_KEY, Value: "PRIMARY KEY"},
+				{Type: entity.COMMA, Value: ","},
+				{Type: entity.IDENTIFIER, Value: "name"},
+				{Type: entity.CHAR, Value: "CHAR"},
+				{Type: entity.RIGHT_PARENTHESIS, Value: ")"},
+				{Type: entity.EOF, Value: ""},
 			},
 		},
 	}
@@ -32,13 +35,13 @@ func Test() {
 		fmt.Printf("Input: %s\n", tt.input)
 
 		lexer := NewLexer(tt.input)
-		tokens := []Token{}
+		tokens := []entity.Token{}
 
 		// 收集所有token
 		for {
 			token := lexer.NextToken()
 			tokens = append(tokens, token)
-			if token.Type == EOF {
+			if token.Type == entity.EOF {
 				break
 			}
 		}

@@ -1,4 +1,4 @@
-package sqlparser
+package entity
 
 import (
 	"encoding/json"

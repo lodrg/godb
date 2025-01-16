@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	. "godb/entity"
 	. "godb/sqlparser"
 	"log"
 )

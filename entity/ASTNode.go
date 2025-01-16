@@ -1,4 +1,4 @@
-package sqlparser
+package entity
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ type BinaryOpNode struct {
 	Left, Right ASTNode
 }
 
-func newBinaryOpNode(operator string, left, right ASTNode) *BinaryOpNode {
+func NewBinaryOpNode(operator string, left, right ASTNode) *BinaryOpNode {
 	return &BinaryOpNode{
 		Operator: operator,
 		Left:     left,
@@ -60,7 +60,7 @@ type SelectNode struct {
 	Join           []*JoinNode
 }
 
-func newSelectNode(tableName string, columns []*ColumnNode, whereCause []*BinaryOpNode, orderBy []*ColumnNode, join []*JoinNode) *SelectNode {
+func NewSelectNode(tableName string, columns []*ColumnNode, whereCause []*BinaryOpNode, orderBy []*ColumnNode, join []*JoinNode) *SelectNode {
 	return &SelectNode{
 		TableName:      tableName,
 		Columns:        columns,
@@ -86,7 +86,7 @@ type LiteralNode struct {
 	Value interface{}
 }
 
-func newLiteralNode(value interface{}) *LiteralNode {
+func NewLiteralNode(value interface{}) *LiteralNode {
 	return &LiteralNode{
 		Value: value,
 	}
@@ -106,7 +106,7 @@ type ColumnNode struct {
 	ColumnType ColumnType
 }
 
-func newColumnNode(tableName string, columnName string, columnType ColumnType) *ColumnNode {
+func NewColumnNode(tableName string, columnName string, columnType ColumnType) *ColumnNode {
 	return &ColumnNode{
 		TableName:  tableName,
 		ColumnName: columnName,
@@ -119,7 +119,7 @@ type CreateTableNode struct {
 	Columns   []*ColumnDefinition
 }
 
-func newCreateTableNode(tableName string, columns []*ColumnDefinition) *CreateTableNode {
+func NewCreateTableNode(tableName string, columns []*ColumnDefinition) *CreateTableNode {
 	return &CreateTableNode{
 		TableName: tableName,
 		Columns:   columns,

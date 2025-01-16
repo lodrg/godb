@@ -1,11 +1,13 @@
 package database
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"godb/disktree"
+	. "godb/entity"
 	f "godb/file"
-	. "godb/sqlparser"
+	"godb/logger"
 	"log"
 	"os"
 	"path/filepath"
@@ -18,9 +20,10 @@ import (
 // @Update       david 2025-01-15 14:26
 
 type SqlTableManager struct {
-	dataDirectory     string
-	tableDefinitions  map[string]*SqlTableDefinition
-	tablePrimaryIndex map[string]*disktree.BPTree
+	dataDirectory        string
+	tableDefinitions     map[string]*SqlTableDefinition
+	tablePrimaryIndex    map[string]*disktree.BPTree
+	tableSecondaryIndexs map[string]map[string]*disktree.BPTree
 }
 
 const (
@@ -35,9 +38,10 @@ const (
 // 构造函数
 func NewSqlTableManager(dataDirectory string) *SqlTableManager {
 	stm := &SqlTableManager{
-		dataDirectory:     dataDirectory,
-		tableDefinitions:  make(map[string]*SqlTableDefinition),
-		tablePrimaryIndex: make(map[string]*disktree.BPTree),
+		dataDirectory:        dataDirectory,
+		tableDefinitions:     make(map[string]*SqlTableDefinition),
+		tablePrimaryIndex:    make(map[string]*disktree.BPTree),
+		tableSecondaryIndexs: make(map[string]map[string]*disktree.BPTree),
 	}
 
 	// 读取表定义和初始化B+树
@@ -46,6 +50,7 @@ func NewSqlTableManager(dataDirectory string) *SqlTableManager {
 	// 每次都需要初始化吗？
 	stm.tablePrimaryIndex = stm.readTableTree()
 
+	stm.tableSecondaryIndexs = stm.readSecondaryIndexs()
 	return stm
 }
 
@@ -157,4 +162,89 @@ func (b *SqlTableManager) Close() {
 	for _, tree := range b.tablePrimaryIndex {
 		tree.DiskPager.Close()
 	}
+}
+
+func (b *SqlTableManager) readSecondaryIndexs() map[string]map[string]*disktree.BPTree {
+	tableSecondaryIndexs := make(map[string]map[string]*disktree.BPTree)
+	for tableName, tableDefinition := range b.tableDefinitions {
+		indexs := make(map[string]*disktree.BPTree)
+		for _, column := range tableDefinition.Columns {
+			if column.IndexType == Secondary {
+				indexFileName := b.dataDirectory + "/" + tableName + "." + column.Name + ".idx"
+				indexPager, _ := f.NewDiskPager(indexFileName, PAGE_SIZE, CACHE_SIZE)
+
+				indexTree := disktree.NewBPTree(ORDER_SIZE, INT_SIZE+INT_SIZE, indexPager)
+				indexs[column.Name] = indexTree
+			}
+		}
+		tableSecondaryIndexs[tableName] = indexs
+	}
+	return tableSecondaryIndexs
+}
+
+func (b *SqlTableManager) getTableIndexes(name string) map[string]*disktree.BPTree {
+	return b.tableSecondaryIndexs[name]
+}
+
+func (b *SqlTableManager) deserializeInt(key []byte) uint32 {
+	return binary.BigEndian.Uint32(key)
+}
+
+// uint32 转 []byte
+func (b *SqlTableManager) serializeInt(key uint32) []byte {
+	res := make([]byte, 4)
+	binary.BigEndian.PutUint32(res, key)
+	return res
+}
+
+func (b *SqlTableManager) addAndPersistTableDefinition(definition *SqlTableDefinition) {
+	// create table directory
+	if _, err := os.Stat(b.dataDirectory); os.IsNotExist(err) {
+		err := os.MkdirAll(b.dataDirectory, 0755)
+		if err != nil {
+			logger.Error("failed to create directory: %v\n", err)
+		}
+	}
+
+	// ser(json) table definition
+	jsonTableDef, err := json.Marshal(definition)
+	if err != nil {
+		logger.Error("failed to marshal definition: %v\n", err)
+	}
+
+	// json file
+	jsonfilename := filepath.Join(b.dataDirectory, definition.TableName+".json")
+	err = os.WriteFile(jsonfilename, jsonTableDef, 0644)
+	if err != nil {
+		logger.Error("failed to create json table: %v\n", err)
+	}
+}
+
+func (b *SqlTableManager) addPrimaryIndex(definition *SqlTableDefinition) {
+	// init tree
+	size := b.getRowSize(definition.TableName)
+	fileName := filepath.Join(b.dataDirectory, definition.TableName+".db")
+	diskPager, err := f.NewDiskPager(fileName, PAGE_SIZE, CACHE_SIZE)
+
+	if err != nil {
+		log.Fatal("Failed to allocate new page")
+	}
+	tree := disktree.NewBPTree(ORDER_SIZE, size, diskPager)
+	b.tablePrimaryIndex[definition.TableName] = tree
+}
+
+func (b *SqlTableManager) addSecondaryIndex(definition *SqlTableDefinition) {
+	indexes := make(map[string]*disktree.BPTree)
+	for _, column := range definition.Columns {
+		if column.IndexType == Secondary {
+			indexFileName := b.dataDirectory + "/" + definition.TableName + "." + column.Name + ".idx"
+			indexPager, err := f.NewDiskPager(indexFileName, PAGE_SIZE, CACHE_SIZE)
+			if err != nil {
+				log.Fatal("Failed to allocate new page")
+			}
+			indexTree := disktree.NewBPTree(ORDER_SIZE, INT_SIZE, indexPager)
+			indexes[column.Name] = indexTree
+		}
+	}
+	b.tableSecondaryIndexs[definition.TableName] = indexes
 }

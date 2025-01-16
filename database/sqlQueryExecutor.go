@@ -1,15 +1,11 @@
 package database
 
 import (
-	"encoding/json"
 	"fmt"
 	"godb/disktree"
-	f "godb/file"
+	. "godb/entity"
 	"godb/logger"
-	. "godb/sqlparser"
 	"log"
-	"os"
-	"path/filepath"
 	"strconv"
 )
 
@@ -83,7 +79,22 @@ func (e *SqlQueryExecutor) processInsert(node *InsertNode, tableDefinitions []*S
 
 	// 序列化并插入记录
 	bufRecord := serializeRow(values, tableDef)
-	return tree.Insert(key, bufRecord.Bytes())
+	tree.Insert(key, bufRecord.Bytes())
+
+	// secondary indexes
+	inedxes := e.SqlTableManager.getTableIndexes(node.TableName)
+
+	// column is secondary, put index key into index tree
+	for i, column := range tableDef.Columns {
+		if column.IndexType == Secondary {
+			indexTree := inedxes[column.Name]
+			LiteralNode := node.Values[i].(LiteralNode)
+			indexKey := LiteralNode.Value.(uint32)
+			indexTree.Insert(indexKey, e.SqlTableManager.serializeInt(key))
+		}
+	}
+
+	return 1
 }
 
 func formatInsertValues(node *InsertNode, tableDef *SqlTableDefinition) map[string]interface{} {
@@ -120,7 +131,7 @@ func formatInsertValues(node *InsertNode, tableDef *SqlTableDefinition) map[stri
 
 func getPrimaryKey(values map[string]interface{}, tableDef *SqlTableDefinition) uint32 {
 	for _, col := range tableDef.Columns {
-		if !col.IsPrimaryKey {
+		if !(col.IndexType == Primary) {
 			continue
 		}
 
@@ -159,38 +170,16 @@ func getPrimaryKey(values map[string]interface{}, tableDef *SqlTableDefinition) 
 func (e *SqlQueryExecutor) prcessCreateTable(node *CreateTableNode, tableDefinitions []*SqlTableDefinition) (*SqlTableDefinition, error) {
 	// create table definition
 	definition := NewSqlTableDefinition(node.TableName, node.Columns)
-
-	// create table directory
-	if _, err := os.Stat(e.SqlTableManager.dataDirectory); os.IsNotExist(err) {
-		err := os.MkdirAll(e.SqlTableManager.dataDirectory, 0755)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create directory: %w", err)
+	for _, column := range definition.Columns {
+		if column.IndexType != None {
+			if column.DataType != TypeInt {
+				return nil, fmt.Errorf("index can only be created on numeric columns")
+			}
 		}
 	}
-
-	// ser(json) table definition
-	jsonTableDef, err := json.Marshal(definition)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal definition: %w", err)
-	}
-
-	// json file
-	jsonfilename := filepath.Join(e.SqlTableManager.dataDirectory, node.TableName+".json")
-	err = os.WriteFile(jsonfilename, jsonTableDef, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create json table: %w", err)
-	}
-
-	// init tree
-	size := e.SqlTableManager.getRowSize(node.TableName)
-	fileName := filepath.Join(e.SqlTableManager.dataDirectory, node.TableName+".db")
-	diskPager, err := f.NewDiskPager(fileName, PAGE_SIZE, CACHE_SIZE)
-
-	if err != nil {
-		log.Fatal("Failed to allocate new page")
-	}
-	tree := disktree.NewBPTree(ORDER_SIZE, size, diskPager)
-	e.SqlTableManager.tablePrimaryIndex[node.TableName] = tree
+	e.SqlTableManager.addAndPersistTableDefinition(definition)
+	e.SqlTableManager.addPrimaryIndex(definition)
+	e.SqlTableManager.addSecondaryIndex(definition)
 
 	// return table definition
 	return definition, nil
@@ -245,7 +234,7 @@ func getRowSize(definition *SqlTableDefinition) int {
 
 func getPriName(definition *SqlTableDefinition) (string, error) {
 	for _, column := range definition.Columns {
-		if column.IsPrimaryKey {
+		if column.IndexType == Primary {
 			return column.Name, nil // 返回列名而不是数据类型
 		}
 	}

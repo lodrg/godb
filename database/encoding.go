@@ -3,8 +3,8 @@ package database
 import (
 	"bytes"
 	"encoding/binary"
+	. "godb/entity"
 	"godb/logger"
-	. "godb/sqlparser"
 	"log"
 )
 
@@ -32,7 +32,7 @@ func serializeRow(record map[string]interface{}, definition *SqlTableDefinition)
 	return buf
 }
 
-func ser_Char(record map[string]interface{}, column SqlColumnDefinition, buf *bytes.Buffer) {
+func ser_Char(record map[string]interface{}, column *ColumnDefinition, buf *bytes.Buffer) {
 	value := record[column.Name].(string)
 	// 创建固定长度的字节数组
 	data := make([]byte, CHAR_SIZE+CHAR_LENGTH)
@@ -52,7 +52,7 @@ func ser_Char(record map[string]interface{}, column SqlColumnDefinition, buf *by
 	buf.Write(data)
 }
 
-func ser_Int(record map[string]interface{}, column SqlColumnDefinition, buf *bytes.Buffer) {
+func ser_Int(record map[string]interface{}, column *ColumnDefinition, buf *bytes.Buffer) {
 	value := record[column.Name].(uint32) // 类型断言
 	data := make([]byte, INT_SIZE)
 	binary.BigEndian.PutUint32(data, value)
@@ -90,7 +90,7 @@ func deserializeRow(definition *SqlTableDefinition, bytes []byte) map[string]int
 	return result
 }
 
-func deser_Int(curPosition int, bytes []byte, result map[string]interface{}, column SqlColumnDefinition) int {
+func deser_Int(curPosition int, bytes []byte, result map[string]interface{}, column *ColumnDefinition) int {
 	if curPosition+INT_SIZE <= len(bytes) {
 		value := binary.BigEndian.Uint32(bytes[curPosition : curPosition+INT_SIZE])
 		logger.Debug("value: %x \n", value)
@@ -103,7 +103,7 @@ func deser_Int(curPosition int, bytes []byte, result map[string]interface{}, col
 // 02 00 00 00    31 32 00 00 00 00 00 00
 // └─长度信息(4字节)┘└─实际内容(8字节)─────┘
 // 值= 2        "12" + 填充的0
-func deser_Char(curPosition int, bytes []byte, result map[string]interface{}, column SqlColumnDefinition) int {
+func deser_Char(curPosition int, bytes []byte, result map[string]interface{}, column *ColumnDefinition) int {
 	if curPosition+CHAR_SIZE+CHAR_LENGTH <= len(bytes) {
 		strBytes := bytes[curPosition : curPosition+CHAR_SIZE+CHAR_LENGTH]
 

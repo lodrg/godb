@@ -1,4 +1,4 @@
-package sqlparser
+package entity
 
 import (
 	"encoding/json"
@@ -21,6 +21,7 @@ const (
 	INSERT_INTO
 	CREATE_TABLE
 	PRIMARY_KEY
+	INDEX
 	PARTIAL_KEYWORD
 	COMMA
 	LEFT_PARENTHESIS
@@ -49,7 +50,7 @@ func (t Token) String() string {
 	return fmt.Sprintf("Token{  Type:%v, Value:%v  }", t.Type, t.Value)
 }
 
-func newToken(tokenType TokenType, value string) Token {
+func NewToken(tokenType TokenType, value string) Token {
 	return Token{
 		Type:  tokenType,
 		Value: value,

@@ -18,12 +18,12 @@ func TestDatabase(t *testing.T) {
 	//resetDataDirectory(dir)
 	base := NewWebpDataBase(dir)
 
-	base.Execute("create table testTable2 (id INT PRIMARY KEY, name CHAR, age INT, gender CHAR, count INT)")
+	//base.Execute("create table testTable2 (id INT PRIMARY KEY, name CHAR, age INT, gender CHAR, count INT)")
 
 	base.Execute("insert into testTable2 values (1,'这里',22,'男',3)")
 
-	//result, _ := base.Execute("select id,name,age,count from testTable2 where id = 1")
-	result, _ := base.Execute("select testTable.id,testTable2.gendere from testTable2 join testTable2 on testTable2.id = testTable.id where testTable.id = 1")
+	result, _ := base.Execute("select id,name,age,count from testTable2 where id = 1")
+	//result, _ := base.Execute("select testTable.id,testTable2.gendere from testTable2 join testTable2 on testTable2.id = testTable.id where testTable.id = 1")
 
 	logger.Info("result: %v\n", result)
 

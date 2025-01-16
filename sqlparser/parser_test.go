@@ -2,6 +2,7 @@ package sqlparser
 
 import (
 	"fmt"
+	"godb/entity"
 	"reflect"
 	"strings"
 	"testing"
@@ -12,7 +13,7 @@ import (
 // @Create       david 2024-12-27 18:13
 // @Update       david 2024-12-27 18:13
 // 辅助函数：打印 AST 节点的详细信息
-func diffNode(got, want ASTNode, path string) string {
+func diffNode(got, want entity.ASTNode, path string) string {
 	if got == nil && want == nil {
 		return ""
 	}
@@ -26,8 +27,8 @@ func diffNode(got, want ASTNode, path string) string {
 	var diffs []string
 
 	switch w := want.(type) {
-	case *SelectNode:
-		g, ok := got.(*SelectNode)
+	case *entity.SelectNode:
+		g, ok := got.(*entity.SelectNode)
 		if !ok {
 			return fmt.Sprintf("%s: type mismatch: got %T, want SelectNode", path, got)
 		}
@@ -84,8 +85,8 @@ func diffNode(got, want ASTNode, path string) string {
 			}
 		}
 
-	case *ColumnNode:
-		g, ok := got.(*ColumnNode)
+	case *entity.ColumnNode:
+		g, ok := got.(*entity.ColumnNode)
 		if !ok {
 			return fmt.Sprintf("%s: type mismatch: got %T, want ColumnNode", path, got)
 		}
@@ -99,8 +100,8 @@ func diffNode(got, want ASTNode, path string) string {
 			diffs = append(diffs, fmt.Sprintf("%s.ColumnType: got %v, want %v", path, g.ColumnType, w.ColumnType))
 		}
 
-	case *BinaryOpNode:
-		g, ok := got.(*BinaryOpNode)
+	case *entity.BinaryOpNode:
+		g, ok := got.(*entity.BinaryOpNode)
 		if !ok {
 			return fmt.Sprintf("%s: type mismatch: got %T, want BinaryOpNode", path, got)
 		}
@@ -114,8 +115,8 @@ func diffNode(got, want ASTNode, path string) string {
 			diffs = append(diffs, d)
 		}
 
-	case *JoinNode:
-		g, ok := got.(*JoinNode)
+	case *entity.JoinNode:
+		g, ok := got.(*entity.JoinNode)
 		if !ok {
 			return fmt.Sprintf("%s: type mismatch: got %T, want JoinNode", path, got)
 		}
@@ -126,8 +127,8 @@ func diffNode(got, want ASTNode, path string) string {
 			diffs = append(diffs, d)
 		}
 
-	case *LiteralNode:
-		g, ok := got.(*LiteralNode)
+	case *entity.LiteralNode:
+		g, ok := got.(*entity.LiteralNode)
 		if !ok {
 			return fmt.Sprintf("%s: type mismatch: got %T, want LiteralNode", path, got)
 		}
@@ -143,17 +144,17 @@ func TestSQLParser_Parse(t *testing.T) {
 	tests := []struct {
 		name    string
 		sql     string
-		want    ASTNode
+		want    entity.ASTNode
 		wantErr bool
 	}{
 		{
 			name: "simple select",
 			sql:  "SELECT id, name FROM users",
-			want: &SelectNode{
+			want: &entity.SelectNode{
 				TableName: "users",
-				Columns: []*ColumnNode{
-					newColumnNode("", "id", PLAIN_STRING),
-					newColumnNode("", "name", PLAIN_STRING),
+				Columns: []*entity.ColumnNode{
+					entity.newColumnNode("", "id", entity.PLAIN_STRING),
+					entity.newColumnNode("", "name", entity.PLAIN_STRING),
 				},
 				WhereClause:    nil,
 				OrderByColumns: nil,
@@ -164,15 +165,15 @@ func TestSQLParser_Parse(t *testing.T) {
 		{
 			name: "select with where",
 			sql:  "SELECT id FROM users WHERE id = 1",
-			want: &SelectNode{
+			want: &entity.SelectNode{
 				TableName: "users",
-				Columns: []*ColumnNode{
-					newColumnNode("", "id", PLAIN_STRING),
+				Columns: []*entity.ColumnNode{
+					entity.newColumnNode("", "id", entity.PLAIN_STRING),
 				},
-				WhereClause: []*BinaryOpNode{
-					newBinaryOpNode("=",
-						newColumnNode("", "id", PLAIN_STRING),
-						newLiteralNode(1),
+				WhereClause: []*entity.BinaryOpNode{
+					entity.newBinaryOpNode("=",
+						entity.newColumnNode("", "id", entity.PLAIN_STRING),
+						entity.newLiteralNode(1),
 					),
 				},
 				OrderByColumns: nil,
@@ -183,17 +184,17 @@ func TestSQLParser_Parse(t *testing.T) {
 		{
 			name: "select with join",
 			sql:  "SELECT users.id, departments.name FROM users JOIN departments ON users.dept_id = departments.id",
-			want: &SelectNode{
+			want: &entity.SelectNode{
 				TableName: "users",
-				Columns: []*ColumnNode{
-					newColumnNode("users", "id", TABLE_NAME_PREFIXED),
-					newColumnNode("departments", "name", TABLE_NAME_PREFIXED),
+				Columns: []*entity.ColumnNode{
+					entity.newColumnNode("users", "id", entity.TABLE_NAME_PREFIXED),
+					entity.newColumnNode("departments", "name", entity.TABLE_NAME_PREFIXED),
 				},
-				Join: []*JoinNode{
-					newJoinNode("departments",
-						newBinaryOpNode("=",
-							newColumnNode("users", "dept_id", TABLE_NAME_PREFIXED),
-							newColumnNode("departments", "id", TABLE_NAME_PREFIXED),
+				Join: []*entity.JoinNode{
+					entity.newJoinNode("departments",
+						entity.newBinaryOpNode("=",
+							entity.newColumnNode("users", "dept_id", entity.TABLE_NAME_PREFIXED),
+							entity.newColumnNode("departments", "id", entity.TABLE_NAME_PREFIXED),
 						),
 					),
 				},
@@ -203,14 +204,14 @@ func TestSQLParser_Parse(t *testing.T) {
 		{
 			name: "select with order by",
 			sql:  "SELECT id, name FROM users ORDER BY name",
-			want: &SelectNode{
+			want: &entity.SelectNode{
 				TableName: "users",
-				Columns: []*ColumnNode{
-					newColumnNode("", "id", PLAIN_STRING),
-					newColumnNode("", "name", PLAIN_STRING),
+				Columns: []*entity.ColumnNode{
+					entity.newColumnNode("", "id", entity.PLAIN_STRING),
+					entity.newColumnNode("", "name", entity.PLAIN_STRING),
 				},
-				OrderByColumns: []*ColumnNode{
-					newColumnNode("", "name", PLAIN_STRING),
+				OrderByColumns: []*entity.ColumnNode{
+					entity.newColumnNode("", "name", entity.PLAIN_STRING),
 				},
 			},
 			wantErr: false,
@@ -235,9 +236,9 @@ func TestSQLParser_Parse(t *testing.T) {
 
 func TestASTNodeCreation(t *testing.T) {
 	t.Run("test binary op node", func(t *testing.T) {
-		left := newColumnNode("", "id", PLAIN_STRING)
-		right := newLiteralNode(1)
-		node := newBinaryOpNode("=", left, right)
+		left := entity.newColumnNode("", "id", entity.PLAIN_STRING)
+		right := entity.newLiteralNode(1)
+		node := entity.newBinaryOpNode("=", left, right)
 
 		if node.Operator != "=" {
 			t.Errorf("Expected operator '=', got %s", node.Operator)
@@ -251,7 +252,7 @@ func TestASTNodeCreation(t *testing.T) {
 	})
 
 	t.Run("test column node", func(t *testing.T) {
-		node := newColumnNode("users", "id", TABLE_NAME_PREFIXED)
+		node := entity.newColumnNode("users", "id", entity.TABLE_NAME_PREFIXED)
 
 		if node.TableName != "users" {
 			t.Errorf("Expected table name 'users', got %s", node.TableName)
@@ -259,20 +260,20 @@ func TestASTNodeCreation(t *testing.T) {
 		if node.ColumnName != "id" {
 			t.Errorf("Expected column name 'id', got %s", node.ColumnName)
 		}
-		if node.ColumnType != TABLE_NAME_PREFIXED {
+		if node.ColumnType != entity.TABLE_NAME_PREFIXED {
 			t.Errorf("Expected column type TABLE_NAME_PREFIXED, got %v", node.ColumnType)
 		}
 	})
 
 	t.Run("test select node", func(t *testing.T) {
-		columns := []*ColumnNode{newColumnNode("", "id", PLAIN_STRING)}
-		whereClause := []*BinaryOpNode{
-			newBinaryOpNode("=",
-				newColumnNode("", "id", PLAIN_STRING),
-				newLiteralNode(1),
+		columns := []*entity.ColumnNode{entity.newColumnNode("", "id", entity.PLAIN_STRING)}
+		whereClause := []*entity.BinaryOpNode{
+			entity.newBinaryOpNode("=",
+				entity.newColumnNode("", "id", entity.PLAIN_STRING),
+				entity.newLiteralNode(1),
 			),
 		}
-		node := newSelectNode("users", columns, whereClause, nil, nil)
+		node := entity.newSelectNode("users", columns, whereClause, nil, nil)
 
 		if node.TableName != "users" {
 			t.Errorf("Expected table name 'users', got %s", node.TableName)
@@ -288,12 +289,12 @@ func TestASTNodeCreation(t *testing.T) {
 
 // 测试 CreateTableNode
 func TestCreateTableNode(t *testing.T) {
-	columns := []*ColumnDefinition{
-		{Name: "id", DataType: TypeInt, PrimaryKey: true},
-		{Name: "name", DataType: TypeChar, PrimaryKey: false},
+	columns := []*entity.ColumnDefinition{
+		{Name: "id", DataType: entity.TypeInt, PrimaryKey: true},
+		{Name: "name", DataType: entity.TypeChar, PrimaryKey: false},
 	}
 
-	node := newCreateTableNode("users", columns)
+	node := entity.newCreateTableNode("users", columns)
 
 	if node.TableName != "users" {
 		t.Errorf("Expected table name 'users', got %s", node.TableName)
@@ -364,13 +365,13 @@ func TestSQLParser_Parse_Insert(t *testing.T) {
 	tests := []struct {
 		name    string
 		sql     string
-		want    ASTNode
+		want    entity.ASTNode
 		wantErr bool
 	}{
 		{
 			name: "simple insert",
 			sql:  "INSERT INTO users (id, name) VALUES (1, 'david')",
-			want: &InsertNode{
+			want: &entity.InsertNode{
 				TableName: "users",
 				Columns:   []string{"id", "name"},
 				Values:    []interface{}{"1", "david"},
@@ -380,7 +381,7 @@ func TestSQLParser_Parse_Insert(t *testing.T) {
 		{
 			name: "insert without columns",
 			sql:  "INSERT INTO users VALUES (1, 'david')",
-			want: &InsertNode{
+			want: &entity.InsertNode{
 				TableName: "users",
 				Columns:   []string{},
 				Values:    []interface{}{"1", "david"},
@@ -390,7 +391,7 @@ func TestSQLParser_Parse_Insert(t *testing.T) {
 		{
 			name: "insert multiple values",
 			sql:  "INSERT INTO users (id, name, age) VALUES (1, 'david', 25)",
-			want: &InsertNode{
+			want: &entity.InsertNode{
 				TableName: "users",
 				Columns:   []string{"id", "name", "age"},
 				Values:    []interface{}{"1", "david", "25"},
@@ -407,19 +408,19 @@ func TestSQLParser_Parse_Insert(t *testing.T) {
 				return
 			}
 			if !tt.wantErr {
-				gotNode, ok := got.(*InsertNode)
+				gotNode, ok := got.(*entity.InsertNode)
 				if !ok {
 					t.Errorf("Parse() got = %T, want *InsertNode", got)
 					return
 				}
-				if gotNode.TableName != tt.want.(*InsertNode).TableName {
-					t.Errorf("TableName = %v, want %v", gotNode.TableName, tt.want.(*InsertNode).TableName)
+				if gotNode.TableName != tt.want.(*entity.InsertNode).TableName {
+					t.Errorf("TableName = %v, want %v", gotNode.TableName, tt.want.(*entity.InsertNode).TableName)
 				}
-				if !reflect.DeepEqual(gotNode.Columns, tt.want.(*InsertNode).Columns) {
-					t.Errorf("Columns = %v, want %v", gotNode.Columns, tt.want.(*InsertNode).Columns)
+				if !reflect.DeepEqual(gotNode.Columns, tt.want.(*entity.InsertNode).Columns) {
+					t.Errorf("Columns = %v, want %v", gotNode.Columns, tt.want.(*entity.InsertNode).Columns)
 				}
-				if !reflect.DeepEqual(gotNode.Values, tt.want.(*InsertNode).Values) {
-					t.Errorf("Values = %v, want %v", gotNode.Values, tt.want.(*InsertNode).Values)
+				if !reflect.DeepEqual(gotNode.Values, tt.want.(*entity.InsertNode).Values) {
+					t.Errorf("Values = %v, want %v", gotNode.Values, tt.want.(*entity.InsertNode).Values)
 				}
 			}
 		})
@@ -430,17 +431,17 @@ func TestSQLParser_Parse_CreateTable(t *testing.T) {
 	tests := []struct {
 		name    string
 		sql     string
-		want    ASTNode
+		want    entity.ASTNode
 		wantErr bool
 	}{
 		{
 			name: "create table with primary key",
 			sql:  "CREATE TABLE users (id INT PRIMARY KEY, name CHAR)",
-			want: &CreateTableNode{
+			want: &entity.CreateTableNode{
 				TableName: "users",
-				Columns: []*ColumnDefinition{
-					{Name: "id", DataType: TypeInt, PrimaryKey: true},
-					{Name: "name", DataType: TypeChar, PrimaryKey: false},
+				Columns: []*entity.ColumnDefinition{
+					{Name: "id", DataType: entity.TypeInt, PrimaryKey: true},
+					{Name: "name", DataType: entity.TypeChar, PrimaryKey: false},
 				},
 			},
 			wantErr: false,
@@ -448,11 +449,11 @@ func TestSQLParser_Parse_CreateTable(t *testing.T) {
 		{
 			name: "create table without primary key",
 			sql:  "CREATE TABLE departments (id INT, name CHAR)",
-			want: &CreateTableNode{
+			want: &entity.CreateTableNode{
 				TableName: "departments",
-				Columns: []*ColumnDefinition{
-					{Name: "id", DataType: TypeInt, PrimaryKey: false},
-					{Name: "name", DataType: TypeChar, PrimaryKey: false},
+				Columns: []*entity.ColumnDefinition{
+					{Name: "id", DataType: entity.TypeInt, PrimaryKey: false},
+					{Name: "name", DataType: entity.TypeChar, PrimaryKey: false},
 				},
 			},
 			wantErr: false,
@@ -460,13 +461,13 @@ func TestSQLParser_Parse_CreateTable(t *testing.T) {
 		{
 			name: "create table with multiple columns",
 			sql:  "CREATE TABLE employees (id INT PRIMARY KEY, name CHAR, age INT, dept_id INT)",
-			want: &CreateTableNode{
+			want: &entity.CreateTableNode{
 				TableName: "employees",
-				Columns: []*ColumnDefinition{
-					{Name: "id", DataType: TypeInt, PrimaryKey: true},
-					{Name: "name", DataType: TypeChar, PrimaryKey: false},
-					{Name: "age", DataType: TypeInt, PrimaryKey: false},
-					{Name: "dept_id", DataType: TypeInt, PrimaryKey: false},
+				Columns: []*entity.ColumnDefinition{
+					{Name: "id", DataType: entity.TypeInt, PrimaryKey: true},
+					{Name: "name", DataType: entity.TypeChar, PrimaryKey: false},
+					{Name: "age", DataType: entity.TypeInt, PrimaryKey: false},
+					{Name: "dept_id", DataType: entity.TypeInt, PrimaryKey: false},
 				},
 			},
 			wantErr: false,
@@ -481,16 +482,16 @@ func TestSQLParser_Parse_CreateTable(t *testing.T) {
 				return
 			}
 			if !tt.wantErr {
-				gotNode, ok := got.(*CreateTableNode)
+				gotNode, ok := got.(*entity.CreateTableNode)
 				if !ok {
 					t.Errorf("Parse() got = %T, want *CreateTableNode", got)
 					return
 				}
-				if gotNode.TableName != tt.want.(*CreateTableNode).TableName {
-					t.Errorf("TableName = %v, want %v", gotNode.TableName, tt.want.(*CreateTableNode).TableName)
+				if gotNode.TableName != tt.want.(*entity.CreateTableNode).TableName {
+					t.Errorf("TableName = %v, want %v", gotNode.TableName, tt.want.(*entity.CreateTableNode).TableName)
 				}
-				if !reflect.DeepEqual(gotNode.Columns, tt.want.(*CreateTableNode).Columns) {
-					t.Errorf("Columns = %v, want %v", gotNode.Columns, tt.want.(*CreateTableNode).Columns)
+				if !reflect.DeepEqual(gotNode.Columns, tt.want.(*entity.CreateTableNode).Columns) {
+					t.Errorf("Columns = %v, want %v", gotNode.Columns, tt.want.(*entity.CreateTableNode).Columns)
 				}
 			}
 		})

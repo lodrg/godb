@@ -3,6 +3,7 @@ package sqlparser
 import (
 	"errors"
 	"fmt"
+	. "godb/entity"
 	"strconv"
 	"strings"
 )
@@ -116,14 +117,14 @@ func (p *SQLParser) parseSelect() (*SelectNode, error) {
 		}
 	}
 
-	return newSelectNode(tablename, columns, wheres, orderColumns, joins), err
+	return NewSelectNode(tablename, columns, wheres, orderColumns, joins), err
 }
 
 func (p *SQLParser) parseColumnList() ([]*ColumnNode, error) {
 	columnList := []*ColumnNode{}
 	if p.match(WILDCARD) {
 		p.next()
-		columnList = append(columnList, newColumnNode("*", "", WILDCARDN))
+		columnList = append(columnList, NewColumnNode("*", "", WILDCARDN))
 	} else {
 		for {
 			column, err := p.parseColumn()
@@ -152,9 +153,9 @@ func (p *SQLParser) parseColumn() (*ColumnNode, error) {
 		p.next()
 		if strings.Contains(identifier, ".") {
 			parts := strings.Split(identifier, ".")
-			return newColumnNode(parts[0], parts[1], TABLE_NAME_PREFIXED), nil
+			return NewColumnNode(parts[0], parts[1], TABLE_NAME_PREFIXED), nil
 		} else {
-			return newColumnNode("", identifier, PLAIN_STRING), nil
+			return NewColumnNode("", identifier, PLAIN_STRING), nil
 		}
 	} else {
 		return nil, fmt.Errorf("Expected identifier but got %v", p.peek().Type)
@@ -200,11 +201,11 @@ func (p *SQLParser) parseExpression() (*BinaryOpNode, error) {
 		right, err := p.parseColumnOrLiteralOrSubquery()
 		if err != nil {
 		}
-		node := newBinaryOpNode("=", left, right)
+		node := NewBinaryOpNode("=", left, right)
 		return node, nil
 	} else if p.match(IN) {
 		right := p.parseSubquery()
-		node := newBinaryOpNode("IN", left, right)
+		node := NewBinaryOpNode("IN", left, right)
 		return node, nil
 	} else {
 		return nil, fmt.Errorf("Expected = or IN but got %s", p.peek().Type)
@@ -216,7 +217,7 @@ func (p *SQLParser) parseColumnOrLiteralOrSubquery() (ASTNode, error) {
 		return p.parseColumn()
 	} else if p.match(INTEGER) {
 		value, _ := strconv.Atoi(p.peek().Value)
-		literal := newLiteralNode(uint32(value))
+		literal := NewLiteralNode(uint32(value))
 		p.next()
 		return literal, nil
 	} else if p.match(STRING) {
@@ -339,7 +340,7 @@ func (p *SQLParser) parseCreateTable() ASTNode {
 	columns := p.parseColumnDefinitions()
 	p.consume(RIGHT_PARENTHESIS)
 
-	return newCreateTableNode(tableName, columns)
+	return NewCreateTableNode(tableName, columns)
 }
 
 func (p *SQLParser) parseColumnDefinitions() []*ColumnDefinition {
@@ -349,15 +350,22 @@ func (p *SQLParser) parseColumnDefinitions() []*ColumnDefinition {
 		columnName, _ := p.parsePlainString()
 		dataType, _ := p.parseDataType()
 
-		isPrimaryKey := p.match(PRIMARY_KEY)
-		if isPrimaryKey {
+		indexType := None
+		if p.match(PRIMARY_KEY) {
+			indexType = Primary
+			p.next()
+		} else if p.match(INDEX) {
+			indexType = Secondary
+			p.next()
+		} else {
+			indexType = None
 			p.next()
 		}
 
 		columns = append(columns, &ColumnDefinition{
-			Name:       columnName,
-			DataType:   dataType,
-			PrimaryKey: isPrimaryKey,
+			Name:      columnName,
+			DataType:  dataType,
+			IndexType: indexType,
 		})
 
 		if p.match(COMMA) {

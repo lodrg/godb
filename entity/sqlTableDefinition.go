@@ -1,8 +1,4 @@
-package database
-
-import (
-	. "godb/sqlparser"
-)
+package entity
 
 // @Title        sqlTableDefinition.go
 // @Description
@@ -10,19 +6,14 @@ import (
 // @Update       david 2024-12-31 15:31
 
 type SqlTableDefinition struct {
-	TableName string                `json:"tableName"`
-	Columns   []SqlColumnDefinition `json:"columns"`
+	TableName string              `json:"tableName"`
+	Columns   []*ColumnDefinition `json:"columns"`
 }
 
 func NewSqlTableDefinition(tableName string, columns []*ColumnDefinition) *SqlTableDefinition {
-	scd := []SqlColumnDefinition{}
-	for _, column := range columns {
-		columnDefinition := newSqlColumnDefinition(column.Name, column.DataType, column.PrimaryKey)
-		scd = append(scd, *columnDefinition)
-	}
 	return &SqlTableDefinition{
 		TableName: tableName,
-		Columns:   scd,
+		Columns:   columns,
 	}
 }
 

@@ -198,6 +198,9 @@ func (b *SqlTableManager) serializeInt(key uint32) []byte {
 }
 
 func (b *SqlTableManager) addAndPersistTableDefinition(definition *SqlTableDefinition) {
+
+	b.tableDefinitions[definition.TableName] = definition
+
 	// create table directory
 	if _, err := os.Stat(b.dataDirectory); os.IsNotExist(err) {
 		err := os.MkdirAll(b.dataDirectory, 0755)

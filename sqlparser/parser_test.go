@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// @Title        sql_parser_test.go
+// @Title        parser_test.go
 // @Description
 // @Create       david 2024-12-27 18:13
 // @Update       david 2024-12-27 18:13

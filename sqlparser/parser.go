@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// @Title        sql_parser.go
+// @Title        parser.go
 // @Description  parse the tokens into AST nodes
 // @Create       2024-12-26 17:16
 // @Update       2024-12-26 17:16

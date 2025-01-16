@@ -26,23 +26,62 @@ func NewSqlQueryExecutor(manager *SqlTableManager) *SqlQueryExecutor {
 
 func (e *SqlQueryExecutor) processSelect(node *SelectNode, tableDefinitions []*SqlTableDefinition) map[string]interface{} {
 	result := make(map[string]interface{}, 0)
-	// get table def from json
 	tableDefinition := e.SqlTableManager.getTableDefinition(node.TableName)
-	// get tree
 	tree := e.SqlTableManager.tablePrimaryIndex[node.TableName]
 
 	if node.WhereClause == nil || len(node.WhereClause) == 0 {
 		log.Fatal("Where clause is empty")
 	}
 	// find where from table def, and hit pk
-	condition, _ := getPrimeryKeyCondition(node.WhereClause, tableDefinition)
+	priKey := statmentPrimaryKey(node, tableDefinition)
 
 	// use pk condition get data from tree
-	rows := GetRows(tree, condition, tableDefinition)
+	rows := GetRows(tree, priKey, tableDefinition)
 
-	//fmt.Printf("rows: %v \n", rows)
-	logger.Debug("rows: %v \n", rows)
 	// rebuild result rows just return rows that you want
+	result = trimRows(node, rows, result)
+
+	return result
+}
+
+func (e *SqlQueryExecutor) processInsert(node *InsertNode, tableDefinitions []*SqlTableDefinition) uint32 {
+	tableDef := e.SqlTableManager.getTableDefinition(node.TableName)
+	tree := e.SqlTableManager.tablePrimaryIndex[node.TableName]
+
+	// 格式化并验证值
+	values := formatInsertValues(node, tableDef)
+
+	// 获取并验证主键
+	key := checkPrimaryKeyExisting(values, tableDef, tree)
+
+	// 序列化并插入记录
+	bufRecord := serializeRow(values, tableDef)
+	tree.Insert(key, bufRecord.Bytes())
+
+	// secondary indexes
+	e.insertIntoSecondaryIndex(node, tableDef, key)
+
+	return 1
+}
+func (e *SqlQueryExecutor) prcessCreateTable(node *CreateTableNode, tableDefinitions []*SqlTableDefinition) (*SqlTableDefinition, error) {
+	// create table definition
+	definition := NewSqlTableDefinition(node.TableName, node.Columns)
+	for _, column := range definition.Columns {
+		if column.IndexType != None {
+			if column.DataType != TypeInt {
+				return nil, fmt.Errorf("index can only be created on numeric columns")
+			}
+		}
+	}
+	e.SqlTableManager.addAndPersistTableDefinition(definition)
+	e.SqlTableManager.addPrimaryIndex(definition)
+	e.SqlTableManager.addSecondaryIndex(definition)
+
+	// return table definition
+	return definition, nil
+}
+
+func trimRows(node *SelectNode, rows []map[string]interface{}, result map[string]interface{}) map[string]interface{} {
 	columns := node.Columns
 	for _, row := range rows {
 		// 处理 SELECT * 的情况
@@ -57,19 +96,18 @@ func (e *SqlQueryExecutor) processSelect(node *SelectNode, tableDefinitions []*S
 			}
 		}
 	}
-	//fmt.Printf("result: %v\n", result)
-	logger.Debug("result: %v\n", result)
 	return result
 }
 
-func (e *SqlQueryExecutor) processInsert(node *InsertNode, tableDefinitions []*SqlTableDefinition) uint32 {
-	tableDef := e.SqlTableManager.getTableDefinition(node.TableName)
-	tree := e.SqlTableManager.tablePrimaryIndex[node.TableName]
+func statmentPrimaryKey(node *SelectNode, tableDefinition *SqlTableDefinition) uint32 {
+	condition, _ := getPrimeryKeyCondition(node.WhereClause, tableDefinition)
 
-	// 格式化并验证值
-	values := formatInsertValues(node, tableDef)
+	right := condition.Right.(*LiteralNode)
+	priKey := right.Value.(uint32)
+	return priKey
+}
 
-	// 获取并验证主键
+func checkPrimaryKeyExisting(values map[string]interface{}, tableDef *SqlTableDefinition, tree *disktree.BPTree) uint32 {
 	key := getPrimaryKey(values, tableDef)
 
 	// 检查主键是否存在
@@ -77,11 +115,10 @@ func (e *SqlQueryExecutor) processInsert(node *InsertNode, tableDefinitions []*S
 		log.Fatal("duplicate primary key found")
 	}
 
-	// 序列化并插入记录
-	bufRecord := serializeRow(values, tableDef)
-	tree.Insert(key, bufRecord.Bytes())
+	return key
+}
 
-	// secondary indexes
+func (e *SqlQueryExecutor) insertIntoSecondaryIndex(node *InsertNode, tableDef *SqlTableDefinition, key uint32) {
 	inedxes := e.SqlTableManager.getTableIndexes(node.TableName)
 
 	// column is secondary, put index key into index tree
@@ -93,8 +130,6 @@ func (e *SqlQueryExecutor) processInsert(node *InsertNode, tableDefinitions []*S
 			indexTree.Insert(indexKey, e.SqlTableManager.serializeInt(key))
 		}
 	}
-
-	return 1
 }
 
 func formatInsertValues(node *InsertNode, tableDef *SqlTableDefinition) map[string]interface{} {
@@ -167,24 +202,6 @@ func getPrimaryKey(values map[string]interface{}, tableDef *SqlTableDefinition) 
 	panic("no primary key column found in table definition")
 }
 
-func (e *SqlQueryExecutor) prcessCreateTable(node *CreateTableNode, tableDefinitions []*SqlTableDefinition) (*SqlTableDefinition, error) {
-	// create table definition
-	definition := NewSqlTableDefinition(node.TableName, node.Columns)
-	for _, column := range definition.Columns {
-		if column.IndexType != None {
-			if column.DataType != TypeInt {
-				return nil, fmt.Errorf("index can only be created on numeric columns")
-			}
-		}
-	}
-	e.SqlTableManager.addAndPersistTableDefinition(definition)
-	e.SqlTableManager.addPrimaryIndex(definition)
-	e.SqlTableManager.addSecondaryIndex(definition)
-
-	// return table definition
-	return definition, nil
-}
-
 func getPrimeryKeyCondition(clause []*BinaryOpNode, definition *SqlTableDefinition) (*BinaryOpNode, error) {
 	priKeyName, err := getPriName(definition)
 	if err != nil {
@@ -200,9 +217,7 @@ func getPrimeryKeyCondition(clause []*BinaryOpNode, definition *SqlTableDefiniti
 	return nil, fmt.Errorf("No primary key column found")
 }
 
-func GetRows(tree *disktree.BPTree, condition *BinaryOpNode, definition *SqlTableDefinition) []map[string]interface{} {
-	right := condition.Right.(*LiteralNode)
-	priKey := right.Value.(uint32)
+func GetRows(tree *disktree.BPTree, priKey uint32, definition *SqlTableDefinition) []map[string]interface{} {
 	all, _ := tree.SearchAll(priKey)
 
 	if all != nil {

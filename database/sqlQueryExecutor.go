@@ -125,8 +125,9 @@ func (e *SqlQueryExecutor) insertIntoSecondaryIndex(node *InsertNode, tableDef *
 	for i, column := range tableDef.Columns {
 		if column.IndexType == Secondary {
 			indexTree := inedxes[column.Name]
-			LiteralNode := node.Values[i].(LiteralNode)
-			indexKey := LiteralNode.Value.(uint32)
+			//LiteralNode := node.Values[i].(LiteralNode)
+			//indexKey := LiteralNode.Value.(uint32)
+			indexKey := node.Values[i].(uint32)
 			indexTree.Insert(indexKey, e.SqlTableManager.serializeInt(key))
 		}
 	}

@@ -357,9 +357,6 @@ func (p *SQLParser) parseColumnDefinitions() []*ColumnDefinition {
 		} else if p.match(INDEX) {
 			indexType = Secondary
 			p.next()
-		} else {
-			indexType = None
-			p.next()
 		}
 
 		columns = append(columns, &ColumnDefinition{

@@ -75,7 +75,7 @@ type JoinNode struct {
 	Condition ASTNode
 }
 
-func newJoinNode(tableName string, condition ASTNode) *JoinNode {
+func NewJoinNode(tableName string, condition ASTNode) *JoinNode {
 	return &JoinNode{
 		TableName: tableName,
 		Condition: condition,

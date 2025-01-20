@@ -159,7 +159,7 @@ func TestLexer_ErrorCases(t *testing.T) {
 		name  string
 		input string
 	}{
-		{"Unterminated string", "SELECT * FROM users WHERE name = 'John"},
+		{"Unterminated string", "SELECT * FROM users WHERE name = 'John'"},
 		{"Invalid character", "SELECT @ FROM users"},
 		{"Unterminated identifier", "SELECT * FROM users."},
 	}
@@ -298,6 +298,24 @@ func TestLexer_SQLStatements(t *testing.T) {
 				{Type: entity.COMMA, Value: ","},
 				{Type: entity.IDENTIFIER, Value: "name"},
 				{Type: entity.CHAR, Value: "CHAR"},
+				{Type: entity.RIGHT_PARENTHESIS, Value: ")"},
+				{Type: entity.EOF, Value: ""},
+			},
+		},
+		{
+			name:  "CREATE TABLE - With Sec KEY",
+			input: "CREATE TABLE users (id INT PRIMARY KEY, name CHAR INDEX)",
+			expected: []entity.Token{
+				{Type: entity.CREATE_TABLE, Value: "CREATE TABLE"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.LEFT_PARENTHESIS, Value: "("},
+				{Type: entity.IDENTIFIER, Value: "id"},
+				{Type: entity.INT, Value: "INT"},
+				{Type: entity.PRIMARY_KEY, Value: "PRIMARY KEY"},
+				{Type: entity.COMMA, Value: ","},
+				{Type: entity.IDENTIFIER, Value: "name"},
+				{Type: entity.CHAR, Value: "CHAR"},
+				{Type: entity.INDEX, Value: "INDEX"},
 				{Type: entity.RIGHT_PARENTHESIS, Value: ")"},
 				{Type: entity.EOF, Value: ""},
 			},

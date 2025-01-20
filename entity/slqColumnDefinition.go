@@ -19,19 +19,19 @@ import (
 
 // 列定义结构
 type SqlColumnDefinition struct {
-	Name         string   `json:"name"`
-	DataType     DataType `json:"dataType"`
-	IsPrimaryKey bool     `json:"primaryKey"`
+	Name      string    `json:"name"`
+	DataType  DataType  `json:"dataType"`
+	IndexType IndexType `json:"primaryKey"`
 	//Length       int      `json:"length,omitempty"`   // 对于 CHAR/VARCHAR 类型的长度
 	//IsNullable   bool     `json:"nullable,omitempty"` // 是否允许为空
 	//DefaultValue string   `json:"default,omitempty"`  // 默认值
 }
 
-func newSqlColumnDefinition(name string, dataType DataType, ispk bool) *SqlColumnDefinition {
+func newSqlColumnDefinition(name string, dataType DataType, indextype IndexType) *SqlColumnDefinition {
 	return &SqlColumnDefinition{
-		Name:         name,
-		DataType:     dataType,
-		IsPrimaryKey: ispk,
+		Name:      name,
+		DataType:  dataType,
+		IndexType: indextype,
 	}
 }
 

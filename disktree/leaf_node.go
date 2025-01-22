@@ -126,7 +126,7 @@ func (n *DiskLeafNode) Search(key uint32) (interface{}, bool) {
 	return nil, false // 未找到时返回
 }
 
-func (n *DiskLeafNode) SearchAll(key uint32) (interface{}, bool) {
+func (n *DiskLeafNode) SearchAll(key uint32) ([][]byte, bool) {
 	result := make([][]byte, 0)
 
 	for i := 0; i < len(n.Keys); i++ {

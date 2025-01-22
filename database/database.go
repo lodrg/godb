@@ -17,7 +17,7 @@ type DataBase struct {
 	sqlTableExecutor *SqlQueryExecutor
 }
 
-func NewWebpDataBase(dataDirectory string) *DataBase {
+func NewDataBase(dataDirectory string) *DataBase {
 	manager := NewSqlTableManager(dataDirectory)
 	executor := NewSqlQueryExecutor(manager)
 	return &DataBase{

@@ -16,11 +16,11 @@ type ASTNode interface {
 }
 
 type BinaryOpNode struct {
-	Operator    string
+	Operator    TokenType
 	Left, Right ASTNode
 }
 
-func NewBinaryOpNode(operator string, left, right ASTNode) *BinaryOpNode {
+func NewBinaryOpNode(operator TokenType, left, right ASTNode) *BinaryOpNode {
 	return &BinaryOpNode{
 		Operator: operator,
 		Left:     left,

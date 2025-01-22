@@ -143,7 +143,7 @@ func (n *DiskInternalNode) Search(key uint32) (interface{}, bool) {
 	return child.Search(key)
 }
 
-func (n *DiskInternalNode) SearchAll(key uint32) (interface{}, bool) {
+func (n *DiskInternalNode) SearchAll(key uint32) ([][]byte, bool) {
 	// 找到合适的子节点
 	index := 0
 	for index < len(n.Keys) && n.Keys[index] <= key {
@@ -155,7 +155,7 @@ func (n *DiskInternalNode) SearchAll(key uint32) (interface{}, bool) {
 		childPageNumber := n.ChildrenPageNumbers[index]
 		child := ReadDisk(n.Order, n.DiskPager, childPageNumber)
 		all, _ := child.SearchAll(key)
-		result = append(result, all.([][]byte)...)
+		result = append(result, all...)
 		if index < len(n.Keys) && key < n.Keys[index] {
 			break
 		}

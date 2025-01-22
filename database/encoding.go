@@ -75,12 +75,10 @@ func deserializeRow(definition *SqlTableDefinition, bytes []byte) map[string]int
 		switch column.DataType {
 		case TypeInt:
 			// 将4个字节转换为uint32
-
 			curPosition = deser_Int(curPosition, bytes, result, column)
 
 		case TypeChar:
 			// 处理字符串类型，去除空字节
-
 			curPosition = deser_Char(curPosition, bytes, result, column)
 
 		default:
@@ -122,4 +120,14 @@ func deser_Char(curPosition int, bytes []byte, result map[string]interface{}, co
 		curPosition += CHAR_SIZE + CHAR_LENGTH
 	}
 	return curPosition
+}
+
+func SerializeInt(value uint32) []byte {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, value)
+	return b
+}
+
+func DeserializeInt(bytes []byte) uint32 {
+	return binary.BigEndian.Uint32(bytes)
 }

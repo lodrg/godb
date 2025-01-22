@@ -201,11 +201,11 @@ func (p *SQLParser) parseExpression() (*BinaryOpNode, error) {
 		right, err := p.parseColumnOrLiteralOrSubquery()
 		if err != nil {
 		}
-		node := NewBinaryOpNode("=", left, right)
+		node := NewBinaryOpNode(EQUALS, left, right)
 		return node, nil
 	} else if p.match(IN) {
 		right := p.parseSubquery()
-		node := NewBinaryOpNode("IN", left, right)
+		node := NewBinaryOpNode(IN, left, right)
 		return node, nil
 	} else {
 		return nil, fmt.Errorf("Expected = or IN but got %s", p.peek().Type)

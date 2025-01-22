@@ -12,26 +12,106 @@ import (
 func TestDatabase(t *testing.T) {
 	// 设置日志级别
 	logger.SetLevel(logger.INFO)
-
 	dir := "data"
+	base := NewDataBase(dir)
 
-	//resetDataDirectory(dir)
-	base := NewWebpDataBase(dir)
+	// 创建表
+	_, err := base.Execute("CREATE TABLE users (id INT PRIMARY KEY, name CHAR, age INT INDEX, email CHAR, score INT INDEX, status CHAR)")
+	if err != nil {
+		t.Fatalf("Failed to create table: %v", err)
+	}
 
-	//base.Execute("create table testTable2 (id INT PRIMARY KEY, name CHAR, age INT, gender CHAR, count INT)")
+	// 插入数据
+	inserts := []string{
+		"INSERT INTO users VALUES (1, 'Alice', 25, 'alice@email.com', 95, 'active')",
+		"INSERT INTO users VALUES (2, 'Bob', 30, 'bob@email.com', 88, 'active')",
+		"INSERT INTO users VALUES (3, 'Charlie', 25, 'charlie@email.com', 92, 'inactive')",
+		"INSERT INTO users VALUES (4, 'David', 35, 'david@email.com', 78, 'active')",
+		"INSERT INTO users VALUES (5, 'Eve', 28, 'eve@email.com', 90, 'active')",
+	}
 
-	//base.Execute("insert into testTable2 values (1,'这里',22,'男',3)")
+	for _, insert := range inserts {
+		_, err := base.Execute(insert)
+		if err != nil {
+			t.Fatalf("Failed to insert: %v", err)
+		}
+	}
 
-	//result, _ := base.Execute("select id,name,age,count from testTable2 where id = 1")
-	//result, _ := base.Execute("select testTable.id,testTable2.gendere from testTable2 join testTable2 on testTable2.id = testTable.id where testTable.id = 1")
+	// 主键查询测试
+	result, err := base.Execute("SELECT id, name, age FROM users WHERE id = 1")
+	if err != nil {
+		t.Fatalf("Failed to query by primary key: %v", err)
+	}
+	logger.Info("Primary key query result: %v", result)
 
-	//logger.Info("result: %v\n", result)
+	// 二级索引查询测试 - Age
+	result, err = base.Execute("SELECT id, name, email FROM users WHERE age = 25")
+	if err != nil {
+		t.Fatalf("Failed to query by age index: %v", err)
+	}
+	logger.Info("Age index query result: %v", result)
 
-	base.Execute("CREATE TABLE test_table (id INT PRIMARY KEY, age INT INDEX, name CHAR)")
+	// 二级索引查询测试 - Socre
+	result, err = base.Execute("SELECT id, name, email FROM users WHERE score = 90")
+	if err != nil {
+		t.Fatalf("Failed to query by email index: %v", err)
+	}
+	logger.Info("Email index query result: %v", result)
 
-	base.Execute("insert into test_table values (1,22,'男')")
+	// 复合条件查询测试
+	result, err = base.Execute("SELECT id, name, age, status FROM users WHERE age = 25 AND status = 'active'")
+	if err != nil {
+		t.Fatalf("Failed to query with multiple conditions: %v", err)
+	}
+	logger.Info("Multiple conditions query result: %v", result)
 
-	result, _ := base.Execute("select id,age,name from test_table where id = 1 and name = '男'")
+	// 范围查询测试
+	result, err = base.Execute("SELECT id, name, age, score FROM users WHERE age >= 25 AND age <= 30")
+	if err != nil {
+		t.Fatalf("Failed to perform range query: %v", err)
+	}
+	logger.Info("Range query result: %v", result)
 
-	logger.Info("result: %v\n", result)
+	// 更新测试
+	//_, err = base.Execute("UPDATE users SET status = 'inactive' WHERE id = 2")
+	//if err != nil {
+	//	t.Fatalf("Failed to update record: %v", err)
+	//}
+
+	//// 验证更新结果
+	//result, err = base.Execute("SELECT id, name, status FROM users WHERE id = 2")
+	//if err != nil {
+	//	t.Fatalf("Failed to verify update: %v", err)
+	//}
+	//logger.Info("Update verification result: %v", result)
+	//
+	//// 删除测试
+	//_, err = base.Execute("DELETE FROM users WHERE id = 5")
+	//if err != nil {
+	//	t.Fatalf("Failed to delete record: %v", err)
+	//}
+	//
+	//// 验证删除结果
+	//result, err = base.Execute("SELECT id, name FROM users WHERE id = 5")
+	//if err != nil {
+	//	t.Fatalf("Failed to verify deletion: %v", err)
+	//}
+	//logger.Info("Delete verification result: %v", result)
+	//
+	//// 聚合查询测试
+	//queries := []string{
+	//	"SELECT COUNT(*) FROM users",
+	//	"SELECT MAX(age) FROM users",
+	//	"SELECT MIN(score) FROM users",
+	//	"SELECT AVG(age) FROM users",
+	//}
+	//
+	//for _, query := range queries {
+	//	result, err := base.Execute(query)
+	//	if err != nil {
+	//		logger.Info("Aggregate query not supported: %v", err)
+	//		continue
+	//	}
+	//	logger.Info("Aggregate query result (%s): %v", query, result)
+	//}
 }

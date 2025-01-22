@@ -4,7 +4,7 @@ package disktree
 type DiskNode interface {
 	Insert(key uint32, value []byte) *DiskInsertResult
 	Search(key uint32) (interface{}, bool)
-	SearchAll(key uint32) (interface{}, bool)
+	SearchAll(key uint32) ([][]byte, bool)
 	GetKeys() []uint32
 	GetPageNumber() uint32
 	WriteDisk() error

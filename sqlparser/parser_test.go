@@ -171,7 +171,7 @@ func TestSQLParser_Parse(t *testing.T) {
 					entity.NewColumnNode("", "id", entity.PLAIN_STRING),
 				},
 				WhereClause: []*entity.BinaryOpNode{
-					entity.NewBinaryOpNode("=",
+					entity.NewBinaryOpNode(entity.EQUALS,
 						entity.NewColumnNode("", "id", entity.PLAIN_STRING),
 						entity.NewLiteralNode(1),
 					),
@@ -192,7 +192,7 @@ func TestSQLParser_Parse(t *testing.T) {
 				},
 				Join: []*entity.JoinNode{
 					entity.NewJoinNode("departments",
-						entity.NewBinaryOpNode("=",
+						entity.NewBinaryOpNode(entity.EQUALS,
 							entity.NewColumnNode("users", "dept_id", entity.TABLE_NAME_PREFIXED),
 							entity.NewColumnNode("departments", "id", entity.TABLE_NAME_PREFIXED),
 						),
@@ -238,9 +238,9 @@ func TestASTNodeCreation(t *testing.T) {
 	t.Run("test binary op node", func(t *testing.T) {
 		left := entity.NewColumnNode("", "id", entity.PLAIN_STRING)
 		right := entity.NewLiteralNode(1)
-		node := entity.NewBinaryOpNode("=", left, right)
+		node := entity.NewBinaryOpNode(entity.EQUALS, left, right)
 
-		if node.Operator != "=" {
+		if node.Operator != entity.EQUALS {
 			t.Errorf("Expected operator '=', got %s", node.Operator)
 		}
 		if !reflect.DeepEqual(node.Left, left) {
@@ -268,7 +268,7 @@ func TestASTNodeCreation(t *testing.T) {
 	t.Run("test select node", func(t *testing.T) {
 		columns := []*entity.ColumnNode{entity.NewColumnNode("", "id", entity.PLAIN_STRING)}
 		whereClause := []*entity.BinaryOpNode{
-			entity.NewBinaryOpNode("=",
+			entity.NewBinaryOpNode(entity.EQUALS,
 				entity.NewColumnNode("", "id", entity.PLAIN_STRING),
 				entity.NewLiteralNode(1),
 			),

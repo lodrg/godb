@@ -253,7 +253,7 @@ func (t *BPTree) Search(key uint32) (interface{}, bool) {
 	return root.Search(key)
 }
 
-func (t *BPTree) SearchAll(key uint32) (interface{}, bool) {
+func (t *BPTree) SearchAll(key uint32) ([][]byte, bool) {
 	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber)
 	if root == nil {
 		return nil, false

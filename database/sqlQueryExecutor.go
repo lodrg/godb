@@ -6,6 +6,7 @@ import (
 	. "godb/entity"
 	"godb/logger"
 	"log"
+	"slices"
 	"strconv"
 )
 
@@ -27,19 +28,59 @@ func NewSqlQueryExecutor(manager *SqlTableManager) *SqlQueryExecutor {
 func (e *SqlQueryExecutor) processSelect(node *SelectNode, tableDefinitions []*SqlTableDefinition) map[string]interface{} {
 	result := make(map[string]interface{}, 0)
 	tableDefinition := e.SqlTableManager.getTableDefinition(node.TableName)
-	tree := e.SqlTableManager.tablePrimaryIndex[node.TableName]
+	primaryTree := e.SqlTableManager.tablePrimaryIndex[node.TableName]
+	indexUsed := false
 
 	if node.WhereClause == nil || len(node.WhereClause) == 0 {
 		log.Fatal("Where clause is empty")
 	}
-	// find where from table def, and hit pk
-	priKey := statmentPrimaryKey(node, tableDefinition)
+	//priKey := statmentPrimaryKey(node, tableDefinition)
+	// primary key "="
+	condition, err := getPrimeryKeyCondition(node.WhereClause, tableDefinition, EQUALS)
+	if err == nil {
+		priKey := condition.Right.(*LiteralNode).Value.(uint32)
+		rows := GetPrimaryTreeRows(primaryTree, priKey, tableDefinition)
+		result = trimRows(node, rows, result)
+		indexUsed = true
+	}
 
-	// use pk condition get data from tree
-	rows := GetRows(tree, priKey, tableDefinition)
+	// secondary key "="
+	if !indexUsed {
+		condition, err := getSecondaryKeyCondition(node.WhereClause, tableDefinition, EQUALS)
+		left := condition.Left.(*ColumnNode)
+		secondaryTree := e.SqlTableManager.getSecondaryIndex(node.TableName, left.ColumnName)
+		if err == nil {
+			secondaryIndex := condition.Right.(*LiteralNode).Value.(uint32)
+			// TODO
+			rows := GetSecondaryTreeRowsFromPri(secondaryTree, secondaryIndex, primaryTree, tableDefinition)
+			result = trimRows(node, rows, result)
+		}
+		indexUsed = true
+	}
 
-	// rebuild result rows just return rows that you want
-	result = trimRows(node, rows, result)
+	// primary key "in"
+	if !indexUsed {
+		condition, err := getPrimeryKeyCondition(node.WhereClause, tableDefinition, IN)
+		if err == nil {
+			priKey := condition.Right.(*LiteralNode).Value.(uint32)
+			rows := GetPrimaryTreeRows(primaryTree, priKey, tableDefinition)
+			result = trimRows(node, rows, result)
+		}
+		indexUsed = true
+	}
+
+	// secondary key "="
+	if !indexUsed {
+		condition, err := getSecondaryKeyCondition(node.WhereClause, tableDefinition, IN)
+		left := condition.Left.(*ColumnNode)
+		secondaryTree := e.SqlTableManager.getSecondaryIndex(node.TableName, left.ColumnName)
+		if err == nil {
+			priKey := condition.Right.(*LiteralNode).Value.(uint32)
+			rows := GetSecondaryTreeRows(secondaryTree, priKey, tableDefinition)
+			result = trimRows(node, rows, result)
+		}
+		indexUsed = true
+	}
 
 	return result
 }
@@ -97,14 +138,6 @@ func trimRows(node *SelectNode, rows []map[string]interface{}, result map[string
 		}
 	}
 	return result
-}
-
-func statmentPrimaryKey(node *SelectNode, tableDefinition *SqlTableDefinition) uint32 {
-	condition, _ := getPrimeryKeyCondition(node.WhereClause, tableDefinition)
-
-	right := condition.Right.(*LiteralNode)
-	priKey := right.Value.(uint32)
-	return priKey
 }
 
 func checkPrimaryKeyExisting(values map[string]interface{}, tableDef *SqlTableDefinition, tree *disktree.BPTree) uint32 {
@@ -203,14 +236,14 @@ func getPrimaryKey(values map[string]interface{}, tableDef *SqlTableDefinition) 
 	panic("no primary key column found in table definition")
 }
 
-func getPrimeryKeyCondition(clause []*BinaryOpNode, definition *SqlTableDefinition) (*BinaryOpNode, error) {
+func getPrimeryKeyCondition(clause []*BinaryOpNode, definition *SqlTableDefinition, operation TokenType) (*BinaryOpNode, error) {
 	priKeyName, err := getPriName(definition)
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, node := range clause {
 		if left, ok := node.Left.(*ColumnNode); ok {
-			if left.ColumnName == priKeyName {
+			if left.ColumnName == priKeyName && node.Operator == operation {
 				return node, nil
 			}
 		}
@@ -218,12 +251,27 @@ func getPrimeryKeyCondition(clause []*BinaryOpNode, definition *SqlTableDefiniti
 	return nil, fmt.Errorf("No primary key column found")
 }
 
-func GetRows(tree *disktree.BPTree, priKey uint32, definition *SqlTableDefinition) []map[string]interface{} {
+func getSecondaryKeyCondition(clause []*BinaryOpNode, definition *SqlTableDefinition, operation TokenType) (*BinaryOpNode, error) {
+	secondaryIndexes, err := getSecondaryIndex(definition)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, node := range clause {
+		if left, ok := node.Left.(*ColumnNode); ok {
+			if slices.Contains(secondaryIndexes, left.ColumnName) && node.Operator == operation {
+				return node, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("No primary key column found")
+}
+
+func GetPrimaryTreeRows(tree *disktree.BPTree, priKey uint32, definition *SqlTableDefinition) []map[string]interface{} {
 	all, _ := tree.SearchAll(priKey)
 
 	if all != nil {
 		rows := make([]map[string]interface{}, 0)
-		for _, bytes := range all.([][]byte) {
+		for _, bytes := range all {
 			// deserialize
 			rows = append(rows, deserializeRow(definition, bytes))
 		}
@@ -232,6 +280,36 @@ func GetRows(tree *disktree.BPTree, priKey uint32, definition *SqlTableDefinitio
 	}
 	log.Fatal("can't found data")
 	return nil
+}
+
+func GetSecondaryTreeRows(tree *disktree.BPTree, indexKey uint32, definition *SqlTableDefinition) []map[string]interface{} {
+	all, _ := tree.SearchAll(indexKey)
+	if all != nil {
+		rows := make([]map[string]interface{}, 0)
+		for _, bytes := range all {
+			// deserialize
+			rows = append(rows, deserializeRow(definition, bytes))
+		}
+		logger.Debug("rows: %v \n", rows)
+		return rows
+	}
+	log.Fatal("can't found data")
+	return nil
+}
+
+func GetSecondaryTreeRowsFromPri(tree *disktree.BPTree, indexKey uint32, priTree *disktree.BPTree, definition *SqlTableDefinition) []map[string]interface{} {
+	allPri, _ := tree.SearchAll(indexKey)
+	priKeys := make([]uint32, 0)
+	rows := make([]map[string]interface{}, 0)
+	if allPri != nil {
+		for _, bytes := range allPri {
+			priKeys = append(priKeys, DeserializeInt(bytes))
+		}
+	}
+	for _, pri := range priKeys {
+		rows = append(rows, GetPrimaryTreeRows(priTree, pri, definition)...)
+	}
+	return rows
 }
 
 func getRowSize(definition *SqlTableDefinition) int {
@@ -255,4 +333,14 @@ func getPriName(definition *SqlTableDefinition) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("primary key not exist in table definition")
+}
+
+func getSecondaryIndex(definition *SqlTableDefinition) ([]string, error) {
+	indexes := []string{}
+	for _, column := range definition.Columns {
+		if column.IndexType == Secondary {
+			indexes = append(indexes, column.Name)
+		}
+	}
+	return indexes, fmt.Errorf("Secondary key not exist in table definition")
 }

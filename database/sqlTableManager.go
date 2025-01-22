@@ -27,10 +27,10 @@ type SqlTableManager struct {
 }
 
 const (
-	PAGE_SIZE   = 1024
+	PAGE_SIZE   = 2048
 	ORDER_SIZE  = 10
 	INT_SIZE    = 4
-	CHAR_LENGTH = 8
+	CHAR_LENGTH = 16
 	CHAR_SIZE   = 4
 	CACHE_SIZE  = 10
 )
@@ -250,4 +250,8 @@ func (b *SqlTableManager) addSecondaryIndex(definition *SqlTableDefinition) {
 		}
 	}
 	b.tableSecondaryIndexs[definition.TableName] = indexes
+}
+
+func (b *SqlTableManager) getSecondaryIndex(tableName string, columnName string) *disktree.BPTree {
+	return b.tableSecondaryIndexs[tableName][columnName]
 }

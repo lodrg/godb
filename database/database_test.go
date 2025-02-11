@@ -72,6 +72,8 @@ func TestDatabase(t *testing.T) {
 	}
 	logger.Info("Range query result: %v", result)
 
+	// 以下功能还没有
+
 	// 更新测试
 	//_, err = base.Execute("UPDATE users SET status = 'inactive' WHERE id = 2")
 	//if err != nil {

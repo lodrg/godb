@@ -103,7 +103,11 @@ func (b *SqlTableManager) readTableTree() map[string]*disktree.BPTree {
 		if err != nil {
 			log.Fatal("Failed to allocate new page")
 		}
-		tree := disktree.NewBPTree(ORDER_SIZE, size, diskPager)
+		redolog, err := disktree.NewRedoLog(fileName + ".log")
+		if err != nil {
+			log.Fatal(err)
+		}
+		tree := disktree.NewBPTree(ORDER_SIZE, size, diskPager, redolog)
 		tableTrees[tableName] = tree
 	}
 	return tableTrees
@@ -173,7 +177,12 @@ func (b *SqlTableManager) readSecondaryIndexs() map[string]map[string]*disktree.
 				indexFileName := b.dataDirectory + "/" + tableName + "." + column.Name + ".idx"
 				indexPager, _ := f.NewDiskPager(indexFileName, PAGE_SIZE, CACHE_SIZE)
 
-				indexTree := disktree.NewBPTree(ORDER_SIZE, INT_SIZE+INT_SIZE, indexPager)
+				redolog, err := disktree.NewRedoLog(indexFileName + ".log")
+				if err != nil {
+					log.Fatal("Failed to allocate new page")
+				}
+
+				indexTree := disktree.NewBPTree(ORDER_SIZE, INT_SIZE+INT_SIZE, indexPager, redolog)
 				indexs[column.Name] = indexTree
 			}
 		}
@@ -229,10 +238,15 @@ func (b *SqlTableManager) addPrimaryIndex(definition *SqlTableDefinition) {
 	fileName := filepath.Join(b.dataDirectory, definition.TableName+".db")
 	diskPager, err := f.NewDiskPager(fileName, PAGE_SIZE, CACHE_SIZE)
 
+	redolog, err := disktree.NewRedoLog(fileName + ".log")
 	if err != nil {
 		log.Fatal("Failed to allocate new page")
 	}
-	tree := disktree.NewBPTree(ORDER_SIZE, size, diskPager)
+
+	if err != nil {
+		log.Fatal("Failed to allocate new page")
+	}
+	tree := disktree.NewBPTree(ORDER_SIZE, size, diskPager, redolog)
 	b.tablePrimaryIndex[definition.TableName] = tree
 }
 
@@ -245,7 +259,13 @@ func (b *SqlTableManager) addSecondaryIndex(definition *SqlTableDefinition) {
 			if err != nil {
 				log.Fatal("Failed to allocate new page")
 			}
-			indexTree := disktree.NewBPTree(ORDER_SIZE, INT_SIZE, indexPager)
+
+			redolog, err := disktree.NewRedoLog(indexFileName + ".log")
+			if err != nil {
+				log.Fatal("Failed to allocate new page")
+			}
+
+			indexTree := disktree.NewBPTree(ORDER_SIZE, INT_SIZE, indexPager, redolog)
 			indexes[column.Name] = indexTree
 		}
 	}

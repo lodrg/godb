@@ -16,10 +16,11 @@ type BPTree struct {
 	order          uint32
 	DiskPager      f.DiskPager
 	ValueLength    uint32
+	RedoLog        RedoLog
 }
 
 // NewBPTree 创建新的 B+ 树
-func NewBPTree(order uint32, valueLength uint32, diskPager *f.DiskPager) *BPTree {
+func NewBPTree(order uint32, valueLength uint32, diskPager *f.DiskPager, redolog *RedoLog) *BPTree {
 
 	//diskPager, err := f.NewDiskPager(dbfileName, 80, 80)
 
@@ -31,10 +32,8 @@ func NewBPTree(order uint32, valueLength uint32, diskPager *f.DiskPager) *BPTree
 		order = 3
 	}
 	if diskPager.GetTotalPage() == 0 {
-		// 0
 		diskPager.AllocateNewPage()
 		//fmt.Println("diskPager.AllocateNewPage", 0)
-		// 1
 		rootPageNum, err := diskPager.AllocateNewPage()
 		//fmt.Println("root rootPageNum", rootPageNum)
 		if err != nil {
@@ -50,6 +49,7 @@ func NewBPTree(order uint32, valueLength uint32, diskPager *f.DiskPager) *BPTree
 			order:          order,
 			DiskPager:      *diskPager,
 			ValueLength:    valueLength,
+			RedoLog:        *redolog,
 		}
 		bp.writeMetadata()
 		return bp
@@ -58,11 +58,14 @@ func NewBPTree(order uint32, valueLength uint32, diskPager *f.DiskPager) *BPTree
 	// 从数据的前 4 字节读取 rootPageNumber
 	rootPageNumber := readMetadata(*diskPager)
 
-	return &BPTree{
+	obp := &BPTree{
 		rootPageNumber: uint32(rootPageNumber),
 		order:          order,
 		DiskPager:      *diskPager,
+		RedoLog:        *redolog,
 	}
+	redolog.Recover(obp)
+	return obp
 }
 
 func readMetadata(diskPager f.DiskPager) int {
@@ -97,6 +100,10 @@ func (bp *BPTree) writeMetadata() {
 // Insert 插入键值对
 func (t *BPTree) Insert(key uint32, value []byte) uint32 {
 	logger.Debug("Attempting to insert key: %d, value: %s , value bytes: %x \n", key, value, value)
+	logPosition, err := t.RedoLog.LogInsert(t.rootPageNumber, key, value)
+	if err != nil {
+		log.Fatalf("Failed to insert redolog key: %d\n", key)
+	}
 	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber)
 
 	result := root.Insert(key, value)
@@ -132,7 +139,8 @@ func (t *BPTree) Insert(key uint32, value []byte) uint32 {
 		t.writeMetadata()
 		return 1
 	}
-	return 0
+	t.RedoLog.MarkExecuted(logPosition)
+	return 1
 }
 
 // ReadDisk 从磁盘中读取节点并返回 DiskNode（InternalNode 或 LeafNode）

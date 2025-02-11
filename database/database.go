@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	. "godb/entity"
+	"godb/logger"
 	. "godb/sqlparser"
 	"log"
 )
@@ -27,10 +28,12 @@ func NewDataBase(dataDirectory string) *DataBase {
 }
 
 func (b *DataBase) Execute(sql string) (ExecuteResult, error) {
+	logger.Debug("start execute sql: %v \n", sql)
 	ASTNode, err := Parse(sql)
 	if err != nil {
 		log.Fatal(err)
 	}
+	logger.Debug("finish parse sql to ASTNode")
 	switch Node := ASTNode.(type) {
 	case *SelectNode:
 		sqlTableDefinitions := make([]*SqlTableDefinition, 0)
@@ -43,6 +46,7 @@ func (b *DataBase) Execute(sql string) (ExecuteResult, error) {
 	case *CreateTableNode:
 		sqlTableDefinitions := make([]*SqlTableDefinition, 0)
 		b.sqlTableExecutor.prcessCreateTable(Node, sqlTableDefinitions)
+
 		return ForCreate(sqlTableDefinitions), nil
 	default:
 		err := fmt.Errorf("Unknown node type: %T", ASTNode)

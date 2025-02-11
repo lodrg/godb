@@ -1,1 +1,0 @@
-{"tableName":"test_table","columns":[{"name":"id","dataType":"INT","indexType":"Primary"},{"name":"age","dataType":"INT","indexType":"Secondary"},{"name":"name","dataType":"CHAR","indexType":"None"}]}

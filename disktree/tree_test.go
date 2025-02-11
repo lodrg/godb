@@ -11,11 +11,16 @@ func TestTree(t *testing.T) {
 	dbfileName := "test_disk.db"
 	diskPager, err := f.NewDiskPager(dbfileName, 80, 80)
 
+	redolog, err := NewRedoLog("test.log")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if err != nil {
 		t.Fatalf("Failed to create disk pager: %v", err)
 	}
 	// 创建一个4阶B+树
-	tree := NewBPTree(4, 20, diskPager)
+	tree := NewBPTree(4, 20, diskPager, redolog)
 
 	// 测试插入多条数据
 	t.Run("Insert Multiple Records", func(t *testing.T) {

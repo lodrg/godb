@@ -1,1 +1,0 @@
-{"tableName":"testTable2","columns":[{"name":"id","dataType":"INT","indexType": "Primary"},{"name":"name","dataType":"CHAR","indexType":"None"},{"name":"age","dataType":"INT","indexType":"None"},{"name":"gender","dataType":"CHAR","indexType":"None"},{"name":"count","dataType":"INT","indexType":"None"}]}

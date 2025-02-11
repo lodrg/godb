@@ -26,6 +26,7 @@ func NewSqlQueryExecutor(manager *SqlTableManager) *SqlQueryExecutor {
 }
 
 func (e *SqlQueryExecutor) processSelect(node *SelectNode, tableDefinitions []*SqlTableDefinition) map[string]interface{} {
+	logger.Debug("start process select sql")
 	result := make(map[string]interface{}, 0)
 	tableDefinition := e.SqlTableManager.getTableDefinition(node.TableName)
 	primaryTree := e.SqlTableManager.tablePrimaryIndex[node.TableName]
@@ -86,6 +87,7 @@ func (e *SqlQueryExecutor) processSelect(node *SelectNode, tableDefinitions []*S
 }
 
 func (e *SqlQueryExecutor) processInsert(node *InsertNode, tableDefinitions []*SqlTableDefinition) uint32 {
+	logger.Debug("start process insert sql")
 	tableDef := e.SqlTableManager.getTableDefinition(node.TableName)
 	tree := e.SqlTableManager.tablePrimaryIndex[node.TableName]
 
@@ -105,6 +107,7 @@ func (e *SqlQueryExecutor) processInsert(node *InsertNode, tableDefinitions []*S
 	return 1
 }
 func (e *SqlQueryExecutor) prcessCreateTable(node *CreateTableNode, tableDefinitions []*SqlTableDefinition) (*SqlTableDefinition, error) {
+	logger.Debug("start process create table sql")
 	// create table definition
 	definition := NewSqlTableDefinition(node.TableName, node.Columns)
 	for _, column := range definition.Columns {
@@ -342,5 +345,8 @@ func getSecondaryIndex(definition *SqlTableDefinition) ([]string, error) {
 			indexes = append(indexes, column.Name)
 		}
 	}
-	return indexes, fmt.Errorf("Secondary key not exist in table definition")
+	if len(indexes) == 0 {
+		return nil, fmt.Errorf("no primary key column found in table definition")
+	}
+	return indexes, nil
 }

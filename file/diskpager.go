@@ -1,23 +1,41 @@
 package file
 
 import (
+	"bytes"
 	"fmt"
 	"godb/logger"
 	"os"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 type DiskPager struct {
+	// 文件相关
 	fileName  string
 	file      *os.File
-	totalPage int
+	totalPage atomic.Uint32
 	pageSize  int
 	info      os.FileInfo
+
+	// 缓存相关
 	cacheSize int
-	cache     map[int][]byte
+	cache     sync.Map
 	lru       *lru
-	mu        sync.RWMutex // 添加互斥锁保护并发访问
+
+	// redolog
+
+	// dirty page
+	dirtyPage  sync.Map
+	wg         sync.WaitGroup
+	shutdownCh chan struct{}
+
+	mu sync.RWMutex // 添加互斥锁保护并发访问
 }
+
+const (
+	FLASHiNTERVAL = 1000
+)
 
 func NewDiskPager(filename string, pageSize int, cacheSize int) (*DiskPager, error) {
 	// 先删除已存在的文件
@@ -47,45 +65,73 @@ func NewDiskPager(filename string, pageSize int, cacheSize int) (*DiskPager, err
 	}
 	//fmt.Println("totalPage: ", totalPage)
 
-	return &DiskPager{
-		fileName:  filename,
-		file:      f,
-		pageSize:  pageSize,
-		totalPage: totalPage,
-		info:      info,
-		cacheSize: cacheSize,
-		cache:     make(map[int][]byte),
-		lru:       newLRU(totalPage),
-	}, nil
+	dp := &DiskPager{
+		fileName:   filename,
+		file:       f,
+		pageSize:   pageSize,
+		info:       info,
+		cacheSize:  cacheSize,
+		cache:      sync.Map{},
+		dirtyPage:  sync.Map{},
+		shutdownCh: make(chan struct{}),
+		lru:        newLRU(totalPage),
+	}
+	dp.totalPage.Store(uint32(totalPage))
+
+	dp.wg.Add(1)
+	go dp.flushWorker()
+
+	return dp, nil
 }
 
-func (dp *DiskPager) addToCache(pageNum int, data []byte) {
-	if len(dp.cache) >= dp.cacheSize {
-		// remove the least used page
-		lastUsed, b := dp.lru.removeLast()
-		if b {
-			delete(dp.cache, lastUsed)
+func (dp *DiskPager) WritePage(pageNum int, data []byte) error {
+	dp.mu.Lock()
+	defer dp.mu.Unlock()
+
+	if dp.pageSize != len(data) {
+		return fmt.Errorf("page is not in file length")
+	}
+	if uint32(pageNum) > dp.totalPage.Load() {
+		return fmt.Errorf("page number out of range")
+	}
+
+	dataCopy := make([]byte, len(data))
+	copy(dataCopy, data)
+
+	dp.addToDirtyPage(pageNum, dataCopy)
+
+	//offset := int64(pageNum) * int64(dp.pageSize)
+	//n, err := dp.file.WriteAt(data, offset)
+	//if err != nil {
+	//	return fmt.Errorf("failed to read page: %w", err)
+	//}
+
+	dp.addToCache(pageNum, dataCopy)
+
+	// 如果写入了新页面，更新文件信息
+	if uint32(pageNum) >= dp.totalPage.Load() {
+		if err := dp.updateFileInfo(); err != nil {
+			return fmt.Errorf("failed to update file info: %w", err)
 		}
 	}
-	dp.cache[pageNum] = data
-	//updatelru
-	dp.lru.add(pageNum)
+
+	return nil
 }
 
 func (dp *DiskPager) ReadPage(pageNum int) ([]byte, error) {
 	dp.mu.RLock()
 	defer dp.mu.RUnlock()
 
-	if pageNum > dp.totalPage {
+	if uint32(pageNum) > dp.totalPage.Load() {
 		return nil, fmt.Errorf("page number %d out of range (total pages: %d)", pageNum, dp.totalPage)
 	}
 
 	// check cache first
-	cachePage := dp.cache[pageNum]
+	cachePage, _ := dp.cache.Load(pageNum)
 	if cachePage != nil {
 		//update lru
 		dp.lru.add(pageNum)
-		return cachePage, nil
+		return cachePage.([]byte), nil
 	}
 
 	pageData := make([]byte, dp.pageSize)
@@ -103,35 +149,28 @@ func (dp *DiskPager) ReadPage(pageNum int) ([]byte, error) {
 	return pageData[:n], nil
 }
 
-func (dp *DiskPager) WritePage(pageNum int, data []byte) error {
-	dp.mu.Lock()
-	defer dp.mu.Unlock()
+func (dp *DiskPager) addToCache(pageNum int, data []byte) {
 
-	if dp.pageSize != len(data) {
-		return fmt.Errorf("page is not in file length")
-	}
-	if pageNum > dp.totalPage {
-		return fmt.Errorf("page number out of range")
-	}
-	offset := int64(pageNum) * int64(dp.pageSize)
-	n, err := dp.file.WriteAt(data, offset)
-	if err != nil {
-		return fmt.Errorf("failed to read page: %w", err)
-	}
+	count := 0
+	dp.cache.Range(func(key, value interface{}) bool {
+		count++
+		return true
+	})
 
-	dp.addToCache(pageNum, data[:n])
-
-	if n != len(data) {
-		return fmt.Errorf("incomplete write: wrote %d bytes out of %d", n, len(data))
-	}
-	// 如果写入了新页面，更新文件信息
-	if pageNum >= dp.totalPage {
-		if err := dp.updateFileInfo(); err != nil {
-			return fmt.Errorf("failed to update file info: %w", err)
+	for count >= dp.cacheSize {
+		// remove the least used page
+		lastUsed, b := dp.lru.removeLast()
+		if b {
+			dp.cache.Delete(lastUsed)
 		}
 	}
+	dp.cache.Store(pageNum, data)
+	//updatelru
+	dp.lru.add(pageNum)
+}
 
-	return nil
+func (dp *DiskPager) addToDirtyPage(pageNum int, data []byte) {
+	dp.dirtyPage.Store(pageNum, data)
 }
 
 func (dp *DiskPager) updateFileInfo() error {
@@ -140,9 +179,9 @@ func (dp *DiskPager) updateFileInfo() error {
 		return err
 	}
 	dp.info = info
-	dp.totalPage = int(info.Size()) / dp.pageSize
+	dp.totalPage.Store(uint32(info.Size()) / uint32(dp.pageSize))
 	if info.Size()%int64(dp.pageSize) > 0 {
-		dp.totalPage++
+		dp.totalPage.Add(1)
 	}
 	return nil
 }
@@ -152,12 +191,12 @@ func (dp *DiskPager) AllocateNewPage() (int, error) {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 
-	newPageNum := dp.totalPage
-	dp.totalPage++
+	newPageNum := dp.totalPage.Load()
+	dp.totalPage.Add(1)
 
-	newSize := int64(dp.totalPage) * int64(dp.pageSize)
+	newSize := int64(dp.totalPage.Load()) * int64(dp.pageSize)
 	if err := dp.file.Truncate(newSize); err != nil {
-		dp.totalPage--
+		dp.totalPage.Add(^uint32(0))
 		return 0, fmt.Errorf("failed to allocate new page: %w", err)
 	}
 
@@ -167,20 +206,23 @@ func (dp *DiskPager) AllocateNewPage() (int, error) {
 	//fmt.Printf("Allocating new page : %d\n", newPageNum)
 	logger.Info("total page now : %d \n", dp.totalPage)
 
-	return newPageNum, nil
+	return int(newPageNum), nil
 }
 
 // Close 关闭文件
 func (dp *DiskPager) Close() error {
+	// 通知刷盘协程退出
+	close(dp.shutdownCh)
+
+	// 等待刷盘协程完成
+	dp.wg.Wait()
 	if dp.file != nil {
 		return dp.file.Close()
 	}
 	if dp.lru != nil {
 		return dp.lru.Close()
 	}
-	if dp.cache != nil {
-		dp.cache = nil
-	}
+
 	return nil
 }
 
@@ -193,7 +235,7 @@ func (dp *DiskPager) Sync() error {
 
 // Getter 方法
 func (dp *DiskPager) GetTotalPage() int {
-	return dp.totalPage
+	return int(dp.totalPage.Load())
 }
 
 func (dp *DiskPager) GetPageSize() int {
@@ -202,4 +244,111 @@ func (dp *DiskPager) GetPageSize() int {
 
 func (dp *DiskPager) GetFileName() string {
 	return dp.fileName
+}
+
+// 主动 flush
+func (dp *DiskPager) Flush() error {
+	dp.mu.Lock()
+	defer dp.mu.Unlock()
+
+	//for pageNum, data := range dp.dirtyPage.Range() {
+	//	offset := int64(pageNum) * int64(dp.pageSize)
+	//	n, err := dp.file.WriteAt(data, offset)
+	//	if err != nil {
+	//		return fmt.Errorf("failed to read page: %w", err)
+	//	}
+	//	if n != len(data) {
+	//		return fmt.Errorf("failed to write page: expected to write %d bytes, wrote %d", len(data), n)
+	//	}
+	//	dp.dirtyPage.Delete(pageNum)
+	//}
+	dp.dirtyPage.Range(func(key, value interface{}) bool {
+		pageNum := key.(int)   // 类型断言
+		data := value.([]byte) // 类型断言
+
+		offset := int64(pageNum) * int64(dp.pageSize)
+		n, err := dp.file.WriteAt(data, offset)
+		if err != nil {
+			// 注意：Range的回调中不能直接return error
+			// 可以通过闭包捕获外部的error变量
+			return false // 停止遍历
+		}
+		if n != len(data) {
+			return false // 停止遍历
+		}
+
+		dp.dirtyPage.Delete(pageNum)
+		return true // 继续遍历
+	})
+	dp.file.Sync()
+	return nil
+}
+
+// worker flush
+func (dp *DiskPager) flushDirtyPages() {
+	dp.mu.Lock()
+	dirtyPages := make(map[int][]byte)
+	//for pageNum, data := range dp.dirtyPage {
+	//	dirtyPages[pageNum] = data
+	//}
+	dp.dirtyPage.Range(func(key, value interface{}) bool {
+		pageNum := key.(int)
+		data := value.([]byte) // 类型断言
+
+		dirtyPages[pageNum] = data
+		return true
+	})
+	dp.mu.Unlock()
+
+	//for pageNum, data := range dp.dirtyPage {
+	//	offset := int64(pageNum) * int64(dp.pageSize)
+	//	n, err := dp.file.WriteAt(data, offset)
+	//	if err != nil {
+	//		continue
+	//	}
+	//	if n == len(data) {
+	//		dp.mu.Lock()
+	//		if bytes.Equal(dirtyPages[pageNum], data) {
+	//			dp.dirtyPage.Delete(pageNum)
+	//		}
+	//		dp.mu.Unlock()
+	//	}
+	//}
+
+	dp.dirtyPage.Range(func(key, value interface{}) bool {
+		pageNum := key.(int)
+		data := value.([]byte)
+
+		offset := int64(pageNum) * int64(dp.pageSize)
+		n, err := dp.file.WriteAt(data, offset)
+		if err != nil {
+			return false
+		}
+		if n == len(data) {
+			dp.mu.Lock()
+			if bytes.Equal(dirtyPages[pageNum], data) {
+				dp.dirtyPage.Delete(pageNum)
+			}
+			dp.mu.Unlock()
+		}
+		return true
+	})
+	dp.file.Sync()
+}
+
+func (dp *DiskPager) flushWorker() {
+	defer dp.wg.Done()
+
+	ticker := time.NewTicker(time.Second * FLASHiNTERVAL)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			dp.flushDirtyPages()
+		case <-dp.shutdownCh:
+			dp.flushDirtyPages() // 最终刷盘
+			return
+		}
+	}
 }

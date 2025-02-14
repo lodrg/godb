@@ -25,14 +25,14 @@ func (l *lru) add(pageNum int) {
 		return
 	}
 
-	// 如果达到容量限制，删除最久未使用的页面
-	if len(l.items) >= l.capacity {
-		oldest := l.list.Back()
-		if oldest != nil {
-			delete(l.items, oldest.Value.(int))
-			l.list.Remove(oldest)
-		}
-	}
+	//// 如果达到容量限制，删除最久未使用的页面
+	//if len(l.items) >= l.capacity {
+	//	oldest := l.list.Back()
+	//	if oldest != nil {
+	//		delete(l.items, oldest.Value.(int))
+	//		l.list.Remove(oldest)
+	//	}
+	//}
 
 	// 添加新页面到前端
 	elem := l.list.PushFront(pageNum)

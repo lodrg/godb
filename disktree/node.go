@@ -7,7 +7,7 @@ type DiskNode interface {
 	SearchAll(key uint32) ([][]byte, bool)
 	GetKeys() []uint32
 	GetPageNumber() uint32
-	WriteDisk() error
+	WriteDisk(logSequenceNumber int32) error
 }
 
 type DiskInsertResult struct {

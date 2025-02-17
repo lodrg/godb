@@ -16,7 +16,7 @@ type BPTree struct {
 	order          uint32
 	DiskPager      f.DiskPager
 	ValueLength    uint32
-	RedoLog        RedoLog
+	RedoLog        *RedoLog
 }
 
 // NewBPTree 创建新的 B+ 树
@@ -40,8 +40,8 @@ func NewBPTree(order uint32, valueLength uint32, diskPager *f.DiskPager, redolog
 			log.Fatal("Failed to allocate new page")
 		}
 		//fmt.Println("value length:", valueLength)
-		root := NewLeafNode(order, valueLength, diskPager, uint32(rootPageNum))
-		if err := root.WriteDisk(); err != nil {
+		root := NewLeafNode(order, valueLength, diskPager, uint32(rootPageNum), redolog)
+		if err := root.WriteDisk(-1); err != nil {
 			log.Fatal(err)
 		}
 		bp := &BPTree{
@@ -49,23 +49,24 @@ func NewBPTree(order uint32, valueLength uint32, diskPager *f.DiskPager, redolog
 			order:          order,
 			DiskPager:      *diskPager,
 			ValueLength:    valueLength,
-			RedoLog:        *redolog,
+			RedoLog:        redolog,
 		}
 		bp.writeMetadata()
 		return bp
-	}
-	// 检查读取到的数据是否足够
-	// 从数据的前 4 字节读取 rootPageNumber
-	rootPageNumber := readMetadata(*diskPager)
+	} else {
+		// 检查读取到的数据是否足够
+		// 从数据的前 4 字节读取 rootPageNumber
+		rootPageNumber := readMetadata(*diskPager)
 
-	obp := &BPTree{
-		rootPageNumber: uint32(rootPageNumber),
-		order:          order,
-		DiskPager:      *diskPager,
-		RedoLog:        *redolog,
+		obp := &BPTree{
+			rootPageNumber: uint32(rootPageNumber),
+			order:          order,
+			DiskPager:      *diskPager,
+			RedoLog:        redolog,
+		}
+		redolog.Recover(obp)
+		return obp
 	}
-	redolog.Recover(obp)
-	return obp
 }
 
 func readMetadata(diskPager f.DiskPager) int {
@@ -92,7 +93,7 @@ func (bp *BPTree) writeMetadata() {
 	binary.BigEndian.PutUint32(buffer[0:4], uint32(rootPageNumber))
 
 	// 将缓冲区写入 pager 的第 0 页
-	if err := bp.DiskPager.WritePage(0, buffer); err != nil {
+	if err := bp.DiskPager.WritePage(0, buffer, -1); err != nil {
 		log.Fatalf("Failed to write metadata: %v", err)
 	}
 }
@@ -100,47 +101,40 @@ func (bp *BPTree) writeMetadata() {
 // Insert 插入键值对
 func (t *BPTree) Insert(key uint32, value []byte) uint32 {
 	logger.Debug("Attempting to insert key: %d, value: %s , value bytes: %x \n", key, value, value)
-	logPosition, err := t.RedoLog.LogInsert(t.rootPageNumber, key, value)
-	if err != nil {
-		log.Fatalf("Failed to insert redolog key: %d\n", key)
-	}
 	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber)
 
 	result := root.Insert(key, value)
 	if result != nil {
-		fmt.Printf("Split occurred, creating new root\n")
-		rootPageNum, err := t.DiskPager.AllocateNewPage()
-		_, _ = t.DiskPager.AllocateNewPage()
-		if err != nil {
-			log.Fatal("Failed to allocate new page")
-		}
-		newRoot := NewInternalNode(t.order, &t.DiskPager, uint32(rootPageNum))
-
-		// 修改：先设置子节点页码，再设置键
-		oldRootPage := root.GetPageNumber()
-		newChildPage := result.DiskNode.GetPageNumber()
-
-		// 正确设置子节点页码和键
-		newRoot.ChildrenPageNumbers = []uint32{oldRootPage, newChildPage}
-		newRoot.Keys = []uint32{result.Key}
-
-		t.rootPageNumber = newRoot.PageNumber
-
-		// 确保正确的写入顺序
-		if err := root.WriteDisk(); err != nil {
-			log.Fatalf("Failed to write old root: %v", err)
-		}
-		if err := result.DiskNode.WriteDisk(); err != nil {
-			log.Fatalf("Failed to write new child: %v", err)
-		}
-		if err := newRoot.WriteDisk(); err != nil {
-			log.Fatalf("Failed to write new root: %v", err)
-		}
-		t.writeMetadata()
+		t.InsertRootNew(key, root.GetPageNumber(), result.DiskNode.GetPageNumber())
 		return 1
 	}
-	t.RedoLog.MarkExecuted(logPosition)
 	return 1
+}
+
+func (t *BPTree) InsertRootNew(key uint32, childPageNumber1 uint32, childPageNumber2 uint32) {
+	fmt.Printf("Split occurred, creating new root\n")
+	rootPageNum, err := t.DiskPager.AllocateNewPage()
+	_, _ = t.DiskPager.AllocateNewPage()
+	if err != nil {
+		log.Fatal("Failed to allocate new page")
+	}
+	newRoot := NewInternalNode(t.order, &t.DiskPager, uint32(rootPageNum), t.RedoLog)
+
+	// 正确设置子节点页码和键
+	newRoot.ChildrenPageNumbers = []uint32{childPageNumber1, childPageNumber2}
+	newRoot.Keys = []uint32{key}
+
+	t.rootPageNumber = newRoot.PageNumber
+
+	logSequenceNumber, err := t.RedoLog.LogInsertRootNew(int32(key), int32(childPageNumber1), int32(childPageNumber2))
+	if err != nil {
+		logger.Error("Failed to insert new root log")
+	}
+	// 确保正确的写入顺序
+	if err := newRoot.WriteDisk(logSequenceNumber); err != nil {
+		log.Fatalf("Failed to write new root: %v", err)
+	}
+	t.writeMetadata()
 }
 
 // ReadDisk 从磁盘中读取节点并返回 DiskNode（InternalNode 或 LeafNode）

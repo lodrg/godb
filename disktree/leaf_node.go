@@ -14,13 +14,14 @@ type DiskLeafNode struct {
 	Order       uint32
 	PageNumber  uint32
 	DiskPager   *f.DiskPager
+	RedoLog     *RedoLog
 	Keys        []uint32
 	Values      [][]byte
 	ValueLength uint32
 }
 
 // NewLeafNode 创建新的叶子节点
-func NewLeafNode(order uint32, valueLength uint32, pager *f.DiskPager, pageNum uint32) *DiskLeafNode {
+func NewLeafNode(order uint32, valueLength uint32, pager *f.DiskPager, pageNum uint32, redolog *RedoLog) *DiskLeafNode {
 	return &DiskLeafNode{
 		Keys:        make([]uint32, 0, order),
 		Values:      make([][]byte, 0, order),
@@ -28,6 +29,7 @@ func NewLeafNode(order uint32, valueLength uint32, pager *f.DiskPager, pageNum u
 		Order:       order,
 		PageNumber:  pageNum,
 		DiskPager:   pager,
+		RedoLog:     redolog,
 	}
 }
 
@@ -58,7 +60,11 @@ func (n *DiskLeafNode) Insert(key uint32, value []byte) *DiskInsertResult {
 	logger.Debug("values : %x \n", n.Values)
 	logger.Debug("values : %x \n", n.Values)
 
-	if err := n.WriteDisk(); err != nil {
+	logSequenceNumber, err := n.RedoLog.LogInsertLeafNormal(int32(n.PageNumber), int32(key), value)
+	if err != nil {
+		logger.Error("failed to insert leaf node log")
+	}
+	if err := n.WriteDisk(logSequenceNumber); err != nil {
 		log.Fatalf("Failed to write leaf node: %v", err)
 	}
 
@@ -83,11 +89,11 @@ func (n *DiskLeafNode) split() *DiskInsertResult {
 		log.Fatal("Failed to allocate new page")
 	}
 	fmt.Printf("when split the ValueLength is %d", n.ValueLength)
-	newNode := NewLeafNode(n.Order, n.ValueLength, n.DiskPager, uint32(newNodePage))
+	newNode := NewLeafNode(n.Order, n.ValueLength, n.DiskPager, uint32(newNodePage), n.RedoLog)
 	newNode.Keys = append(newNode.Keys, n.Keys[midIndex:]...)
 	newNode.Values = append(newNode.Values, n.Values[midIndex:]...)
 
-	if err := newNode.WriteDisk(); err != nil {
+	if err := newNode.WriteDisk(-1); err != nil {
 		log.Fatalf("Failed to write new node: %v", err)
 	}
 
@@ -96,7 +102,11 @@ func (n *DiskLeafNode) split() *DiskInsertResult {
 	n.Values = n.Values[:midIndex]
 	//fmt.Println("values :", n.Values)
 
-	if err := n.WriteDisk(); err != nil {
+	logSequenceNumber, err := n.RedoLog.LogInsertLeafSplit(int32(n.PageNumber))
+	if err != nil {
+		log.Fatal("Failed to insert leaf node log")
+	}
+	if err := n.WriteDisk(logSequenceNumber); err != nil {
 		log.Fatalf("Failed to write node: %v", err)
 	}
 	fmt.Println("return key is ", newNode.Keys[0])
@@ -152,7 +162,7 @@ func (n *DiskLeafNode) GetKeys() []uint32 {
 // WriteDisk 将叶子节点写入磁盘
 // isLeaf (1 byte) | keyCount (4 bytes) | [key (4 bytes)]*keyCount | valueLength (4 bytes) | valueData (valueLength bytes)] * keyCount | nextPageNumber (4 bytes)
 // 1 + 4 + 16 + 4 + 40 + 4 = 69
-func (n *DiskLeafNode) WriteDisk() error {
+func (n *DiskLeafNode) WriteDisk(logSequenceNumber int32) error {
 	//fmt.Printf("Writing leaf node to page %d\n", n.PageNumber)
 	//fmt.Printf("Keys: %v\n", n.Keys)
 
@@ -218,7 +228,7 @@ func (n *DiskLeafNode) WriteDisk() error {
 		padding := make([]byte, n.DiskPager.GetPageSize()-len(data))
 		data = append(data, padding...)
 	}
-	n.DiskPager.WritePage(int(n.PageNumber), data)
+	n.DiskPager.WritePage(int(n.PageNumber), data, logSequenceNumber)
 	return nil
 }
 

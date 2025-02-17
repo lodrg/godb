@@ -24,6 +24,7 @@ type DiskPager struct {
 	lru       *lru
 
 	// redolog
+	logSequenceNumberMap sync.Map
 
 	// dirty page
 	dirtyPage  sync.Map
@@ -66,15 +67,16 @@ func NewDiskPager(filename string, pageSize int, cacheSize int) (*DiskPager, err
 	//fmt.Println("totalPage: ", totalPage)
 
 	dp := &DiskPager{
-		fileName:   filename,
-		file:       f,
-		pageSize:   pageSize,
-		info:       info,
-		cacheSize:  cacheSize,
-		cache:      sync.Map{},
-		dirtyPage:  sync.Map{},
-		shutdownCh: make(chan struct{}),
-		lru:        newLRU(totalPage),
+		fileName:             filename,
+		file:                 f,
+		pageSize:             pageSize,
+		info:                 info,
+		cacheSize:            cacheSize,
+		cache:                sync.Map{},
+		dirtyPage:            sync.Map{},
+		logSequenceNumberMap: sync.Map{},
+		shutdownCh:           make(chan struct{}),
+		lru:                  newLRU(totalPage),
 	}
 	dp.totalPage.Store(uint32(totalPage))
 
@@ -84,7 +86,7 @@ func NewDiskPager(filename string, pageSize int, cacheSize int) (*DiskPager, err
 	return dp, nil
 }
 
-func (dp *DiskPager) WritePage(pageNum int, data []byte) error {
+func (dp *DiskPager) WritePage(pageNum int, data []byte, logSequenceNumber int32) error {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 
@@ -98,8 +100,6 @@ func (dp *DiskPager) WritePage(pageNum int, data []byte) error {
 	dataCopy := make([]byte, len(data))
 	copy(dataCopy, data)
 
-	dp.addToDirtyPage(pageNum, dataCopy)
-
 	//offset := int64(pageNum) * int64(dp.pageSize)
 	//n, err := dp.file.WriteAt(data, offset)
 	//if err != nil {
@@ -107,6 +107,8 @@ func (dp *DiskPager) WritePage(pageNum int, data []byte) error {
 	//}
 
 	dp.addToCache(pageNum, dataCopy)
+	dp.addToDirtyPage(pageNum, dataCopy)
+	dp.logSequenceNumberMap.Store(pageNum, logSequenceNumber)
 
 	// 如果写入了新页面，更新文件信息
 	if uint32(pageNum) >= dp.totalPage.Load() {

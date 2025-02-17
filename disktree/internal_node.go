@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	f "godb/file"
+	"godb/logger"
 	"log"
 )
 
@@ -15,14 +16,16 @@ type DiskInternalNode struct {
 	Keys                []uint32
 	ChildrenPageNumbers []uint32
 	DiskPager           *f.DiskPager
+	RedoLog             *RedoLog
 }
 
 // NewInternalNode 创建新的内部节点
-func NewInternalNode(order uint32, pager *f.DiskPager, pageNum uint32) *DiskInternalNode {
+func NewInternalNode(order uint32, pager *f.DiskPager, pageNum uint32, redolog *RedoLog) *DiskInternalNode {
 	node := &DiskInternalNode{
 		Order:               order,
 		PageNumber:          pageNum,
 		DiskPager:           pager,
+		RedoLog:             redolog,
 		Keys:                make([]uint32, 0, order-1),
 		ChildrenPageNumbers: make([]uint32, 0, order),
 	}
@@ -46,7 +49,8 @@ func (n *DiskInternalNode) Insert(key uint32, value []byte) *DiskInsertResult {
 
 	if result != nil {
 		// 子节点分裂，需要插入新的键和子节点指针
-		n.insertIntoNode(result.Key, result.DiskNode)
+		childPage := child.GetPageNumber()
+		n.insertIntoNode(result.Key, childPage)
 
 		// 内部节点最多可以有 order-1 个键
 		if uint32(len(n.Keys)) <= n.Order-1 {
@@ -59,7 +63,7 @@ func (n *DiskInternalNode) Insert(key uint32, value []byte) *DiskInsertResult {
 }
 
 // insertIntoNode 插入键和子节点到当前节点
-func (n *DiskInternalNode) insertIntoNode(key uint32, child DiskNode) {
+func (n *DiskInternalNode) insertIntoNode(key uint32, childPage uint32) {
 	insertIndex := 0
 	for insertIndex < len(n.Keys) && key >= n.Keys[insertIndex] {
 		insertIndex++
@@ -69,7 +73,6 @@ func (n *DiskInternalNode) insertIntoNode(key uint32, child DiskNode) {
 	n.Keys = append(n.Keys[:insertIndex], append([]uint32{key}, n.Keys[insertIndex:]...)...)
 
 	// 修改：正确处理子节点页码
-	childPage := child.GetPageNumber()
 	if len(n.ChildrenPageNumbers) == 0 {
 		// 如果是空节点，初始化子节点页码
 		n.ChildrenPageNumbers = []uint32{0, childPage}
@@ -79,7 +82,11 @@ func (n *DiskInternalNode) insertIntoNode(key uint32, child DiskNode) {
 			append([]uint32{childPage}, n.ChildrenPageNumbers[insertIndex+1:]...)...)
 	}
 
-	if err := n.WriteDisk(); err != nil {
+	logSequenceNumber, err := n.RedoLog.LogInsertInternalNormal(int32(n.PageNumber), int32(key), int(childPage))
+	if err != nil {
+		logger.Error("failed to log internal node")
+	}
+	if err := n.WriteDisk(logSequenceNumber); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -91,7 +98,7 @@ func (n *DiskInternalNode) splitInternalNode() *DiskInsertResult {
 	if err != nil {
 		log.Fatal("Failed to allocate new page")
 	}
-	newNode := NewInternalNode(n.Order, n.DiskPager, uint32(newNodePage))
+	newNode := NewInternalNode(n.Order, n.DiskPager, uint32(newNodePage), n.RedoLog)
 
 	// 计算中间位置
 	midIndex := len(n.Keys) / 2
@@ -114,11 +121,12 @@ func (n *DiskInternalNode) splitInternalNode() *DiskInsertResult {
 	fmt.Println("newNode.childrenPageNumbers :", newNode.ChildrenPageNumbers)
 	n.ChildrenPageNumbers = n.ChildrenPageNumbers[:midIndex+1]
 
+	logSequenceNumber, err := n.RedoLog.LogInsertInternalSplit(int32(n.PageNumber))
 	// 写回磁盘
-	if err := newNode.WriteDisk(); err != nil {
+	if err := newNode.WriteDisk(logSequenceNumber); err != nil {
 		log.Fatalf("Failed to write new internal node to disk: %v", err)
 	}
-	if err := n.WriteDisk(); err != nil {
+	if err := n.WriteDisk(logSequenceNumber); err != nil {
 		log.Fatalf("Failed to write internal node to disk: %v", err)
 	}
 
@@ -191,7 +199,7 @@ func (n *DiskInternalNode) GetPageNumber() uint32 {
 // isLeaf (1 byte) | keyCount (4 bytes) | [key (4 bytes)]*keyCount |childrenPageNumbers size (4 bytes) |childrenPageNumbers (4 * keyCount bytes)
 // 1 + 4 + 12 + 4 + 40 = 61
 // WriteDisk 将内部节点写入磁盘
-func (node *DiskInternalNode) WriteDisk() error {
+func (node *DiskInternalNode) WriteDisk(logSequenceNumber int32) error {
 	fmt.Printf("Writing internal node to page %d\n", node.PageNumber) // 添加日志
 	fmt.Printf("keys: %v\n", node.Keys)                               // 添加日志
 	fmt.Printf("Children: %v\n", node.ChildrenPageNumbers)            // 添加日志
@@ -232,5 +240,5 @@ func (node *DiskInternalNode) WriteDisk() error {
 		data = append(data, padding...)
 	}
 
-	return node.DiskPager.WritePage(int(node.PageNumber), data)
+	return node.DiskPager.WritePage(int(node.PageNumber), data, logSequenceNumber)
 }

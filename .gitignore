@@ -25,6 +25,9 @@ go.work.sum
 .env
 *.db
 
+# os
+.DS_Store
+
 /target/
 /.idea/
 /.settings/

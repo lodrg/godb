@@ -102,12 +102,6 @@ func (dp *DiskPager) WritePage(pageNum int, data []byte, logSequenceNumber int32
 	dataCopy := make([]byte, len(data))
 	copy(dataCopy, data)
 
-	//offset := int64(pageNum) * int64(dp.pageSize)
-	//n, err := dp.file.WriteAt(data, offset)
-	//if err != nil {
-	//	return fmt.Errorf("failed to read page: %w", err)
-	//}
-
 	dp.addToCache(pageNum, dataCopy)
 	dp.addToDirtyPage(pageNum, dataCopy)
 	dp.logSequenceNumberMap.Store(pageNum, logSequenceNumber)
@@ -154,7 +148,6 @@ func (dp *DiskPager) ReadPage(pageNum int) ([]byte, error) {
 }
 
 func (dp *DiskPager) addToCache(pageNum int, data []byte) {
-
 	count := 0
 	dp.cache.Range(func(key, value interface{}) bool {
 		count++

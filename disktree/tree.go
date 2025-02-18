@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	f "godb/file"
 	"godb/logger"
 	"log"
 	"strings"
@@ -14,13 +13,13 @@ import (
 type BPTree struct {
 	rootPageNumber uint32
 	order          uint32
-	DiskPager      f.DiskPager
+	DiskPager      DiskPager
 	ValueLength    uint32
 	RedoLog        *RedoLog
 }
 
 // NewBPTree 创建新的 B+ 树
-func NewBPTree(order uint32, valueLength uint32, diskPager *f.DiskPager, redolog *RedoLog) *BPTree {
+func NewBPTree(order uint32, valueLength uint32, diskPager *DiskPager, redolog *RedoLog) *BPTree {
 
 	//diskPager, err := f.NewDiskPager(dbfileName, 80, 80)
 
@@ -69,7 +68,7 @@ func NewBPTree(order uint32, valueLength uint32, diskPager *f.DiskPager, redolog
 	}
 }
 
-func readMetadata(diskPager f.DiskPager) int {
+func readMetadata(diskPager DiskPager) int {
 	data, err := diskPager.ReadPage(0)
 	if err != nil {
 		log.Fatalf("Failed to read metadata: %v", err)
@@ -101,7 +100,7 @@ func (bp *BPTree) writeMetadata() {
 // Insert 插入键值对
 func (t *BPTree) Insert(key uint32, value []byte) uint32 {
 	logger.Debug("Attempting to insert key: %d, value: %s , value bytes: %x \n", key, value, value)
-	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber)
+	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber, t.RedoLog)
 
 	result := root.Insert(key, value)
 	if result != nil {
@@ -139,7 +138,7 @@ func (t *BPTree) InsertRootNew(key uint32, childPageNumber1 uint32, childPageNum
 
 // ReadDisk 从磁盘中读取节点并返回 DiskNode（InternalNode 或 LeafNode）
 
-func ReadDisk(order uint32, pager *f.DiskPager, pageNumber uint32) DiskNode {
+func ReadDisk(order uint32, pager *DiskPager, pageNumber uint32, redolog *RedoLog) DiskNode {
 	// 从 pager 读取指定页的数据
 	data, err := pager.ReadPage(int(pageNumber))
 	if err != nil {
@@ -217,6 +216,7 @@ func ReadDisk(order uint32, pager *f.DiskPager, pageNumber uint32) DiskNode {
 			Values:      values,
 			ValueLength: valueLength,
 			DiskPager:   pager,
+			RedoLog:     redolog,
 		}
 		return node
 	} else {
@@ -239,6 +239,7 @@ func ReadDisk(order uint32, pager *f.DiskPager, pageNumber uint32) DiskNode {
 			Keys:                keys,
 			ChildrenPageNumbers: childrenPageNumbers,
 			DiskPager:           pager,
+			RedoLog:             redolog,
 		}
 		//fmt.Printf("Reading InternalNode: %+v\n", node)
 		return node
@@ -247,7 +248,7 @@ func ReadDisk(order uint32, pager *f.DiskPager, pageNumber uint32) DiskNode {
 
 // Search 查找键对应的值
 func (t *BPTree) Search(key uint32) (interface{}, bool) {
-	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber)
+	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber, t.RedoLog)
 	//readDisk first
 	if root == nil {
 		return nil, false
@@ -256,7 +257,7 @@ func (t *BPTree) Search(key uint32) (interface{}, bool) {
 }
 
 func (t *BPTree) SearchAll(key uint32) ([][]byte, bool) {
-	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber)
+	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber, t.RedoLog)
 	if root == nil {
 		return nil, false
 	}
@@ -272,7 +273,7 @@ func (t *BPTree) Print() {
 	fmt.Printf("Total Pages: %d\n", t.DiskPager.GetTotalPage())
 	fmt.Println("---------------------------------------------")
 
-	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber)
+	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber, t.RedoLog)
 	if root == nil {
 		fmt.Println("Empty Tree")
 		return
@@ -298,7 +299,7 @@ func (t *BPTree) printNodeDetailed(node DiskNode, depth int) {
 		//打印每个子节点
 		for i, childPage := range n.ChildrenPageNumbers {
 			fmt.Printf("%s├── Child %d:", indent, i)
-			child := ReadDisk(t.order, &t.DiskPager, childPage)
+			child := ReadDisk(t.order, &t.DiskPager, childPage, t.RedoLog)
 			t.printNodeDetailed(child, depth+1)
 		}
 

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"godb/disktree"
-	f "godb/file"
 	"godb/logger"
 	"log"
 	"net"
@@ -23,7 +22,7 @@ func useBP() {
 
 	dbfileName := "test.db"
 
-	diskPager, err := f.NewDiskPager(dbfileName, 80, 80)
+	diskPager, err := disktree.NewDiskPager(dbfileName, 80, 80)
 
 	if err != nil {
 		log.Fatal("Failed to allocate new page")
@@ -72,7 +71,7 @@ func useBP() {
 	search, _ := tree.Search(3)
 	fmt.Println("search:", search)
 
-	db := f.NewSimpleDB("users.db")
+	db := disktree.NewSimpleDB("users.db")
 
 	for i := range 10 {
 		db.Insert(int32(i), "alice"+strconv.Itoa(i))

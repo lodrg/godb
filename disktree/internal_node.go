@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	f "godb/file"
 	"godb/logger"
 	"log"
 )
@@ -15,12 +14,12 @@ type DiskInternalNode struct {
 	PageNumber          uint32
 	Keys                []uint32
 	ChildrenPageNumbers []uint32
-	DiskPager           *f.DiskPager
+	DiskPager           *DiskPager
 	RedoLog             *RedoLog
 }
 
 // NewInternalNode 创建新的内部节点
-func NewInternalNode(order uint32, pager *f.DiskPager, pageNum uint32, redolog *RedoLog) *DiskInternalNode {
+func NewInternalNode(order uint32, pager *DiskPager, pageNum uint32, redolog *RedoLog) *DiskInternalNode {
 	node := &DiskInternalNode{
 		Order:               order,
 		PageNumber:          pageNum,
@@ -44,7 +43,7 @@ func (n *DiskInternalNode) Insert(key uint32, value []byte) *DiskInsertResult {
 
 	// 递归插入到子节点
 	childPage := n.ChildrenPageNumbers[insertIndex]
-	child := ReadDisk(n.Order, n.DiskPager, childPage)
+	child := ReadDisk(n.Order, n.DiskPager, childPage, n.RedoLog)
 	result := child.Insert(key, value)
 
 	if result != nil {
@@ -146,7 +145,7 @@ func (n *DiskInternalNode) Search(key uint32) (interface{}, bool) {
 
 	// 加载对应的子节点
 	childPageNumber := n.ChildrenPageNumbers[index]
-	child := ReadDisk(n.Order, n.DiskPager, childPageNumber)
+	child := ReadDisk(n.Order, n.DiskPager, childPageNumber, n.RedoLog)
 
 	return child.Search(key)
 }
@@ -161,7 +160,7 @@ func (n *DiskInternalNode) SearchAll(key uint32) ([][]byte, bool) {
 	result := make([][]byte, 0, n.Order)
 	for index < len(n.ChildrenPageNumbers) {
 		childPageNumber := n.ChildrenPageNumbers[index]
-		child := ReadDisk(n.Order, n.DiskPager, childPageNumber)
+		child := ReadDisk(n.Order, n.DiskPager, childPageNumber, n.RedoLog)
 		all, _ := child.SearchAll(key)
 		result = append(result, all...)
 		if index < len(n.Keys) && key < n.Keys[index] {

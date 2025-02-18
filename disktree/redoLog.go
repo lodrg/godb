@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"godb/file"
 	"godb/logger"
 	"io"
 	"os"
@@ -19,24 +18,24 @@ type RedoLog struct {
 	logFilePath               string
 	logFile                   *os.File
 	fileInfo                  os.FileInfo
-	currentPosition           uint32
-	logSequenceNumber         uint32
-	executedLogSequenceMumber uint32
+	currentPosition           int32
+	logSequenceNumber         int32
+	executedLogSequenceMumber int32
 	recovering                bool
-	isClosed                  bool
+	IsClosed                  bool
 }
 
 const (
-	LOG_ENTRY_SIZE               = 17
-	HEADER_SIZE                  = 4
-	INSERT_ROOT_NEW              = 1
-	INSERT_LEAF_SPLIT            = 2
-	INSERT_INTERNAL_SPLIT        = 3
-	INSERT_LEAF_NORMAL           = 4
-	INSERT_INTERNAL_NORMAL       = 5
-	LOG_SEQUENCE_NUMBER          = 1
-	EXECUTED_LOG_SEQUENCE_NUMBER = 0
-	LOG_METADATA_SIZE            = 4
+	LOG_ENTRY_SIZE                     = 17
+	HEADER_SIZE                        = 4
+	INSERT_ROOT_NEW              int32 = 1
+	INSERT_LEAF_SPLIT            int32 = 2
+	INSERT_INTERNAL_SPLIT        int32 = 3
+	INSERT_LEAF_NORMAL           int32 = 4
+	INSERT_INTERNAL_NORMAL       int32 = 5
+	LOG_SEQUENCE_NUMBER          int32 = 1
+	EXECUTED_LOG_SEQUENCE_NUMBER int32 = 0
+	LOG_METADATA_SIZE            int32 = 4
 )
 
 func NewRedoLog(filePath string) (*RedoLog, error) {
@@ -63,7 +62,7 @@ func NewRedoLog(filePath string) (*RedoLog, error) {
 		logSequenceNumber:         LOG_SEQUENCE_NUMBER,
 		executedLogSequenceMumber: EXECUTED_LOG_SEQUENCE_NUMBER,
 		recovering:                false,
-		isClosed:                  false,
+		IsClosed:                  false,
 	}
 
 	// 如果是新文件，初始化 header
@@ -106,9 +105,9 @@ func NewRedoLog(filePath string) (*RedoLog, error) {
  * nextPosition (4 bytes)
  *
  */
-func (l RedoLog) logHeader(buffer *bytes.Buffer, capacity uint32) (uint32, error) {
+func (l *RedoLog) logHeader(buffer *bytes.Buffer, capacity int32) (int32, error) {
 	nextPosition := l.currentPosition + capacity
-	binary.Write(buffer, binary.LittleEndian, LOG_SEQUENCE_NUMBER)
+	binary.Write(buffer, binary.LittleEndian, l.logSequenceNumber)
 	binary.Write(buffer, binary.LittleEndian, nextPosition)
 	return nextPosition, nil
 }
@@ -122,10 +121,10 @@ func (l RedoLog) logHeader(buffer *bytes.Buffer, capacity uint32) (uint32, error
  * childPageNumber1 (4 bytes)
  * childPageNumber2 (4 bytes)
  */
-func (l RedoLog) LogInsertRootNew(key int32, childPageNum1 int32, childPageNum2 int32) (int32, error) {
+func (l *RedoLog) LogInsertRootNew(key int32, childPageNum1 int32, childPageNum2 int32) (int32, error) {
 	capacity := 4 * 6
-	buffer := bytes.NewBuffer(make([]byte, capacity))
-	nextPosition, err := l.logHeader(buffer, uint32(capacity))
+	buffer := bytes.NewBuffer(make([]byte, 0, capacity))
+	nextPosition, err := l.logHeader(buffer, int32(capacity))
 	if err != nil {
 		return 0, err
 	}
@@ -140,7 +139,7 @@ func (l RedoLog) LogInsertRootNew(key int32, childPageNum1 int32, childPageNum2 
 	return entry, nil
 }
 
-func (l RedoLog) RecoverInsertRootNew(tree *BPTree) {
+func (l *RedoLog) RecoverInsertRootNew(tree *BPTree) {
 	buffer := make([]byte, 4*3)
 	l.logFile.Read(buffer)
 	var key uint32
@@ -162,10 +161,10 @@ func (l RedoLog) RecoverInsertRootNew(tree *BPTree) {
  * newValueLength (4 bytes)
  * newValue (variable length)
  */
-func (l RedoLog) LogInsertLeafNormal(pageNumber int32, newKey int32, newValue []byte) (int32, error) {
-	capacity := 6*6 + len(newValue)
-	buffer := bytes.NewBuffer(make([]byte, capacity))
-	nextPosition, err := l.logHeader(buffer, uint32(capacity))
+func (l *RedoLog) LogInsertLeafNormal(pageNumber int32, newKey int32, newValue []byte) (int32, error) {
+	capacity := 4*6 + len(newValue)
+	buffer := bytes.NewBuffer(make([]byte, 0, capacity))
+	nextPosition, err := l.logHeader(buffer, int32(capacity))
 	if err != nil {
 		return 0, err
 	}
@@ -181,7 +180,7 @@ func (l RedoLog) LogInsertLeafNormal(pageNumber int32, newKey int32, newValue []
 	return entry, nil
 }
 
-func (l RedoLog) RecoverLogInsertLeafNormal(order uint32, pager *file.DiskPager) {
+func (l *RedoLog) RecoverLogInsertLeafNormal(order uint32, pager *DiskPager) {
 	buffer := make([]byte, 4*3)
 	l.logFile.Read(buffer)
 	var pageNumber uint32
@@ -192,7 +191,7 @@ func (l RedoLog) RecoverLogInsertLeafNormal(order uint32, pager *file.DiskPager)
 	binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, &newKey)
 	binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, &newValueLen)
 	binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, &newValue)
-	disk := ReadDisk(order, pager, pageNumber).(*DiskLeafNode)
+	disk := ReadDisk(order, pager, pageNumber, l).(*DiskLeafNode)
 	disk.Insert(newKey, newValue)
 }
 
@@ -205,10 +204,10 @@ func (l RedoLog) RecoverLogInsertLeafNormal(order uint32, pager *file.DiskPager)
  * newKey (4 bytes)
  * newChildPageNumber (4 bytes)
  */
-func (l RedoLog) LogInsertInternalNormal(pageNumber int32, newKey int32, newChildPageNumber int) (int32, error) {
+func (l *RedoLog) LogInsertInternalNormal(pageNumber int32, newKey int32, newChildPageNumber int) (int32, error) {
 	capacity := 4 * 6
-	buffer := bytes.NewBuffer(make([]byte, capacity))
-	nextPosition, err := l.logHeader(buffer, uint32(capacity))
+	buffer := bytes.NewBuffer(make([]byte, 0, capacity))
+	nextPosition, err := l.logHeader(buffer, int32(capacity))
 	if err != nil {
 		return 0, err
 	}
@@ -223,7 +222,7 @@ func (l RedoLog) LogInsertInternalNormal(pageNumber int32, newKey int32, newChil
 	return entry, nil
 }
 
-func (l RedoLog) RecoverLogInsertInternalNormal(order uint32, pager *file.DiskPager) {
+func (l *RedoLog) RecoverLogInsertInternalNormal(order uint32, pager *DiskPager) {
 	buffer := make([]byte, 4*3)
 	l.logFile.Read(buffer)
 	var pageNumber uint32
@@ -232,7 +231,7 @@ func (l RedoLog) RecoverLogInsertInternalNormal(order uint32, pager *file.DiskPa
 	binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, &pageNumber)
 	binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, &newKey)
 	binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, &newChildPageNumber)
-	disk := ReadDisk(order, pager, pageNumber).(*DiskInternalNode)
+	disk := ReadDisk(order, pager, pageNumber, l).(*DiskInternalNode)
 	disk.insertIntoNode(newKey, newChildPageNumber)
 }
 
@@ -243,10 +242,10 @@ func (l RedoLog) RecoverLogInsertInternalNormal(order uint32, pager *file.DiskPa
  * operation (4 bytes)
  * pageNumber (4 bytes)
  */
-func (l RedoLog) LogInsertLeafSplit(pageNumber int32) (int32, error) {
+func (l *RedoLog) LogInsertLeafSplit(pageNumber int32) (int32, error) {
 	capacity := 4 * 4
-	buffer := bytes.NewBuffer(make([]byte, capacity))
-	nextPosition, err := l.logHeader(buffer, uint32(capacity))
+	buffer := bytes.NewBuffer(make([]byte, 0, capacity))
+	nextPosition, err := l.logHeader(buffer, int32(capacity))
 	if err != nil {
 		return 0, err
 	}
@@ -259,12 +258,12 @@ func (l RedoLog) LogInsertLeafSplit(pageNumber int32) (int32, error) {
 	return entry, nil
 }
 
-func (l RedoLog) RecoverLogInsertLeafSplit(order uint32, pager *file.DiskPager) {
+func (l *RedoLog) RecoverLogInsertLeafSplit(order uint32, pager *DiskPager) {
 	buffer := make([]byte, 4*3)
 	l.logFile.Read(buffer)
 	var pageNumber uint32
 	binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, &pageNumber)
-	disk := ReadDisk(order, pager, pageNumber).(*DiskLeafNode)
+	disk := ReadDisk(order, pager, pageNumber, l).(*DiskLeafNode)
 	disk.split()
 }
 
@@ -275,10 +274,10 @@ func (l RedoLog) RecoverLogInsertLeafSplit(order uint32, pager *file.DiskPager) 
  * operation (4 bytes)
  * pageNumber (4 bytes)
  */
-func (l RedoLog) LogInsertInternalSplit(pageNumber int32) (int32, error) {
+func (l *RedoLog) LogInsertInternalSplit(pageNumber int32) (int32, error) {
 	capacity := 4 * 4
-	buffer := bytes.NewBuffer(make([]byte, capacity))
-	nextPosition, err := l.logHeader(buffer, uint32(capacity))
+	buffer := bytes.NewBuffer(make([]byte, 0, capacity))
+	nextPosition, err := l.logHeader(buffer, int32(capacity))
 	if err != nil {
 		return 0, err
 	}
@@ -291,17 +290,17 @@ func (l RedoLog) LogInsertInternalSplit(pageNumber int32) (int32, error) {
 	return entry, nil
 }
 
-func (l RedoLog) RecoverLogInsertInternalSplit(order uint32, pager *file.DiskPager) {
+func (l *RedoLog) RecoverLogInsertInternalSplit(order uint32, pager *DiskPager) {
 	buffer := make([]byte, 4*3)
 	l.logFile.Read(buffer)
 	var pageNumber uint32
 	binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, &pageNumber)
-	disk := ReadDisk(order, pager, pageNumber).(*DiskInternalNode)
+	disk := ReadDisk(order, pager, pageNumber, l).(*DiskInternalNode)
 	disk.splitInternalNode()
 }
 
-func (l RedoLog) writeLogEntry(buffer *bytes.Buffer, nextPosition int32) (int32, error) {
-	if _, err := l.logFile.Seek(0, io.SeekStart); err != nil {
+func (l *RedoLog) writeLogEntry(buffer *bytes.Buffer, nextPosition int32) (int32, error) {
+	if _, err := l.logFile.Seek(int64(l.currentPosition), io.SeekStart); err != nil {
 		l.logFile.Close()
 		return 0, fmt.Errorf("error seeking to start position: %w", err)
 	}
@@ -310,18 +309,18 @@ func (l RedoLog) writeLogEntry(buffer *bytes.Buffer, nextPosition int32) (int32,
 		return 0, fmt.Errorf("error writing log: %w", err)
 	}
 	l.logFile.Sync()
-	l.currentPosition = uint32(nextPosition)
+	l.currentPosition = int32(nextPosition)
 	if l.recovering {
 		return -1, nil
 	} else {
 		oldLogSequenceNumber := l.logSequenceNumber
 		l.logSequenceNumber++
-		return int32(oldLogSequenceNumber), nil
+		return oldLogSequenceNumber, nil
 	}
 }
 
 // mark exec position is exec position
-func (l RedoLog) MarkExecuted(logSeguenceNumber uint32) error {
+func (l *RedoLog) MarkExecuted(logSeguenceNumber int32) error {
 	if logSeguenceNumber > l.executedLogSequenceMumber {
 		l.executedLogSequenceMumber = logSeguenceNumber
 
@@ -353,20 +352,20 @@ func (l *RedoLog) Recover(bpt *BPTree) error {
 	l.executedLogSequenceMumber = exeLogSeqNumber
 	l.currentPosition = LOG_METADATA_SIZE
 
-	for l.currentPosition < uint32(l.fileInfo.Size()) {
+	for l.currentPosition < int32(l.fileInfo.Size()) {
 		_, err := l.logFile.Seek(int64(l.currentPosition), io.SeekStart)
 		if err != nil {
 			return fmt.Errorf("error seeking to start position: %w", err)
 		}
 		buffer := make([]byte, 4*3)
 		l.logFile.Read(buffer)
-		var logSequenceNumber uint32
-		var nextPosition uint32
-		var operation uint32
+		var logSequenceNumber int32
+		var nextPosition int32
+		var operation int32
 		binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, &logSequenceNumber)
 		binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, &nextPosition)
 		binary.Read(bytes.NewBuffer(buffer), binary.LittleEndian, &operation)
-		if logSequenceNumber > l.executedLogSequenceMumber {
+		if logSequenceNumber > int32(l.executedLogSequenceMumber) {
 			order := bpt.order
 			pager := &bpt.DiskPager
 			switch operation {
@@ -410,15 +409,17 @@ func (l *RedoLog) Delete() {
 	logger.Info("redolog have been deleted")
 }
 
-func (rl *RedoLog) WriteInt(n uint32) error {
+func (rl *RedoLog) WriteInt(n int32) error {
 	// 写入固定大小的int32
 	return binary.Write(rl.logFile, binary.LittleEndian, n)
 }
-func (rl *RedoLog) ReadInt() (uint32, error) {
+func (rl *RedoLog) ReadInt() (int32, error) {
 	buf := make([]byte, 4)
 	_, err := rl.logFile.Read(buf)
 	if err != nil {
 		return 0, err
 	}
-	return binary.LittleEndian.Uint32(buf), nil
+	var value int32
+	err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &value)
+	return value, err
 }

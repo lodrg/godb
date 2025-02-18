@@ -21,3 +21,10 @@ dirty page 和 cache 可能会使用同样的存储结构进行存储，他们�
     dirtypage 的目的是批量写入，减少 io 次数
 
 ## lsn (logSequenceNumber)
+
+lsn 会和 dirtypage 以及 redolog 产生关系
+    
+它的生命周期如下：
+
+    1. 初始的 lsn 是 0 在 redolog 新建的时候被第一次确定
+    2. 之后在每次写入 redolog 的时候会 写入 lsn 并对 lsn 加一

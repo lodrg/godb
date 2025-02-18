@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	f "godb/file"
 	"godb/logger"
 	"log"
 )
@@ -13,7 +12,7 @@ import (
 type DiskLeafNode struct {
 	Order       uint32
 	PageNumber  uint32
-	DiskPager   *f.DiskPager
+	DiskPager   *DiskPager
 	RedoLog     *RedoLog
 	Keys        []uint32
 	Values      [][]byte
@@ -21,7 +20,7 @@ type DiskLeafNode struct {
 }
 
 // NewLeafNode 创建新的叶子节点
-func NewLeafNode(order uint32, valueLength uint32, pager *f.DiskPager, pageNum uint32, redolog *RedoLog) *DiskLeafNode {
+func NewLeafNode(order uint32, valueLength uint32, pager *DiskPager, pageNum uint32, redolog *RedoLog) *DiskLeafNode {
 	return &DiskLeafNode{
 		Keys:        make([]uint32, 0, order),
 		Values:      make([][]byte, 0, order),

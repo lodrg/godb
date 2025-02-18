@@ -1,7 +1,6 @@
 package disktree
 
 import (
-	f "godb/file"
 	"godb/logger"
 	"testing"
 )
@@ -9,9 +8,10 @@ import (
 func TestTree(t *testing.T) {
 	logger.SetLevel(logger.INFO)
 	dbfileName := "test_disk.db"
-	diskPager, err := f.NewDiskPager(dbfileName, 80, 80)
-
 	redolog, err := NewRedoLog("test.log")
+
+	diskPager, err := NewDiskPager(dbfileName, 80, 80, redolog)
+
 	if err != nil {
 		t.Fatal(err)
 	}

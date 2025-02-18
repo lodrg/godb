@@ -1,4 +1,4 @@
-package file
+package disktree
 
 import "container/list"
 
@@ -10,7 +10,7 @@ type lru struct {
 }
 
 // 创建新的 LRU
-func newLRU(capacity int) *lru {
+func NewLRU(capacity int) *lru {
 	return &lru{
 		capacity: capacity,
 		list:     list.New(),

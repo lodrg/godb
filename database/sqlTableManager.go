@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"godb/disktree"
 	. "godb/entity"
-	f "godb/file"
 	"godb/logger"
 	"log"
 	"os"
@@ -98,14 +97,15 @@ func (b *SqlTableManager) readTableTree() map[string]*disktree.BPTree {
 		//fmt.Printf("tableName: %s \n", tableName)
 		size := b.getRowSize(tableName)
 		fileName := b.dataDirectory + "/" + tableName + ".db"
-		diskPager, err := f.NewDiskPager(fileName, PAGE_SIZE, CACHE_SIZE)
-
-		if err != nil {
-			log.Fatal("Failed to allocate new page")
-		}
 		redolog, err := disktree.NewRedoLog(fileName + ".log")
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		diskPager, err := disktree.NewDiskPager(fileName, PAGE_SIZE, CACHE_SIZE, redolog)
+
+		if err != nil {
+			log.Fatal("Failed to allocate new page")
 		}
 		tree := disktree.NewBPTree(ORDER_SIZE, size, diskPager, redolog)
 		tableTrees[tableName] = tree
@@ -175,12 +175,12 @@ func (b *SqlTableManager) readSecondaryIndexs() map[string]map[string]*disktree.
 		for _, column := range tableDefinition.Columns {
 			if column.IndexType == Secondary {
 				indexFileName := b.dataDirectory + "/" + tableName + "." + column.Name + ".idx"
-				indexPager, _ := f.NewDiskPager(indexFileName, PAGE_SIZE, CACHE_SIZE)
-
 				redolog, err := disktree.NewRedoLog(indexFileName + ".log")
+
 				if err != nil {
 					log.Fatal("Failed to allocate new page")
 				}
+				indexPager, _ := disktree.NewDiskPager(indexFileName, PAGE_SIZE, CACHE_SIZE, redolog)
 
 				indexTree := disktree.NewBPTree(ORDER_SIZE, INT_SIZE+INT_SIZE, indexPager, redolog)
 				indexs[column.Name] = indexTree
@@ -236,12 +236,12 @@ func (b *SqlTableManager) addPrimaryIndex(definition *SqlTableDefinition) {
 	// init tree
 	size := b.getRowSize(definition.TableName)
 	fileName := filepath.Join(b.dataDirectory, definition.TableName+".db")
-	diskPager, err := f.NewDiskPager(fileName, PAGE_SIZE, CACHE_SIZE)
-
 	redolog, err := disktree.NewRedoLog(fileName + ".log")
 	if err != nil {
 		log.Fatal("Failed to allocate new page")
 	}
+
+	diskPager, err := disktree.NewDiskPager(fileName, PAGE_SIZE, CACHE_SIZE, redolog)
 
 	if err != nil {
 		log.Fatal("Failed to allocate new page")
@@ -255,12 +255,12 @@ func (b *SqlTableManager) addSecondaryIndex(definition *SqlTableDefinition) {
 	for _, column := range definition.Columns {
 		if column.IndexType == Secondary {
 			indexFileName := b.dataDirectory + "/" + definition.TableName + "." + column.Name + ".idx"
-			indexPager, err := f.NewDiskPager(indexFileName, PAGE_SIZE, CACHE_SIZE)
+			redolog, err := disktree.NewRedoLog(indexFileName + ".log")
 			if err != nil {
 				log.Fatal("Failed to allocate new page")
 			}
 
-			redolog, err := disktree.NewRedoLog(indexFileName + ".log")
+			indexPager, err := disktree.NewDiskPager(indexFileName, PAGE_SIZE, CACHE_SIZE, redolog)
 			if err != nil {
 				log.Fatal("Failed to allocate new page")
 			}

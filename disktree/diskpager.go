@@ -1,4 +1,4 @@
-package file
+package disktree
 
 import (
 	"bytes"
@@ -24,6 +24,7 @@ type DiskPager struct {
 	lru       *lru
 
 	// redolog
+	redolog              *RedoLog
 	logSequenceNumberMap sync.Map
 
 	// dirty page
@@ -38,7 +39,7 @@ const (
 	FLASHiNTERVAL = 1000
 )
 
-func NewDiskPager(filename string, pageSize int, cacheSize int) (*DiskPager, error) {
+func NewDiskPager(filename string, pageSize int, cacheSize int, redolog *RedoLog) (*DiskPager, error) {
 	// 先删除已存在的文件
 	if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
 		// 如果删除失败且错误不是"文件不存在"，则返回错误
@@ -74,9 +75,10 @@ func NewDiskPager(filename string, pageSize int, cacheSize int) (*DiskPager, err
 		cacheSize:            cacheSize,
 		cache:                sync.Map{},
 		dirtyPage:            sync.Map{},
+		redolog:              redolog,
 		logSequenceNumberMap: sync.Map{},
 		shutdownCh:           make(chan struct{}),
-		lru:                  newLRU(totalPage),
+		lru:                  NewLRU(totalPage),
 	}
 	dp.totalPage.Store(uint32(totalPage))
 
@@ -213,9 +215,21 @@ func (dp *DiskPager) AllocateNewPage() (int, error) {
 
 // Close 关闭文件
 func (dp *DiskPager) Close() error {
+	// 检查 redoLog 状态
+	if dp.redolog.IsClosed {
+		return fmt.Errorf("pager needed to be closed before redoLog")
+	}
+
 	// 通知刷盘协程退出
 	close(dp.shutdownCh)
 
+	// 刷新所有脏页
+	dp.flushDirtyPages()
+
+	// 关闭文件
+	if err := dp.file.Close(); err != nil {
+		return fmt.Errorf("error closing file: %v", err)
+	}
 	// 等待刷盘协程完成
 	dp.wg.Wait()
 	if dp.file != nil {
@@ -253,17 +267,6 @@ func (dp *DiskPager) Flush() error {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 
-	//for pageNum, data := range dp.dirtyPage.Range() {
-	//	offset := int64(pageNum) * int64(dp.pageSize)
-	//	n, err := dp.file.WriteAt(data, offset)
-	//	if err != nil {
-	//		return fmt.Errorf("failed to read page: %w", err)
-	//	}
-	//	if n != len(data) {
-	//		return fmt.Errorf("failed to write page: expected to write %d bytes, wrote %d", len(data), n)
-	//	}
-	//	dp.dirtyPage.Delete(pageNum)
-	//}
 	dp.dirtyPage.Range(func(key, value interface{}) bool {
 		pageNum := key.(int)   // 类型断言
 		data := value.([]byte) // 类型断言
@@ -280,6 +283,12 @@ func (dp *DiskPager) Flush() error {
 		}
 
 		dp.dirtyPage.Delete(pageNum)
+		logSequenceNumber, ok := dp.logSequenceNumberMap.Load(pageNum)
+		if ok && logSequenceNumber != -1 {
+			logSeqNum := logSequenceNumber.(int32)
+			dp.redolog.MarkExecuted(logSeqNum)
+		}
+		dp.logSequenceNumberMap.Delete(pageNum)
 		return true // 继续遍历
 	})
 	dp.file.Sync()
@@ -302,21 +311,6 @@ func (dp *DiskPager) flushDirtyPages() {
 	})
 	dp.mu.Unlock()
 
-	//for pageNum, data := range dp.dirtyPage {
-	//	offset := int64(pageNum) * int64(dp.pageSize)
-	//	n, err := dp.file.WriteAt(data, offset)
-	//	if err != nil {
-	//		continue
-	//	}
-	//	if n == len(data) {
-	//		dp.mu.Lock()
-	//		if bytes.Equal(dirtyPages[pageNum], data) {
-	//			dp.dirtyPage.Delete(pageNum)
-	//		}
-	//		dp.mu.Unlock()
-	//	}
-	//}
-
 	dp.dirtyPage.Range(func(key, value interface{}) bool {
 		pageNum := key.(int)
 		data := value.([]byte)
@@ -333,6 +327,12 @@ func (dp *DiskPager) flushDirtyPages() {
 			}
 			dp.mu.Unlock()
 		}
+		logSequenceNumber, ok := dp.logSequenceNumberMap.Load(pageNum)
+		if ok && logSequenceNumber != -1 {
+			logSeqNum := logSequenceNumber.(int32)
+			dp.redolog.MarkExecuted(logSeqNum)
+		}
+		dp.logSequenceNumberMap.Delete(pageNum)
 		return true
 	})
 	dp.file.Sync()

@@ -82,7 +82,7 @@ func (b *SqlTableManager) readTableDefinition() map[string]*SqlTableDefinition {
 			var table SqlTableDefinition
 			err = json.Unmarshal(content, &table)
 			if err != nil {
-				fmt.Println("Error:", err)
+				logger.Debug("Error:", err)
 			}
 			//fmt.Printf("json : %v \n", table)
 			tableDefinitions[table.TableName] = &table

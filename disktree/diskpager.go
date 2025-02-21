@@ -65,7 +65,7 @@ func NewDiskPager(filename string, pageSize int, cacheSize int, redolog *RedoLog
 	if info.Size()%int64(pageSize) > 0 {
 		totalPage++
 	}
-	//fmt.Println("totalPage: ", totalPage)
+	//logger.Debug("totalPage: ", totalPage)
 
 	dp := &DiskPager{
 		fileName:             filename,

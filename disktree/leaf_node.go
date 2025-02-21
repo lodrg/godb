@@ -3,7 +3,6 @@ package disktree
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"godb/logger"
 	"log"
 )
@@ -82,24 +81,25 @@ func (n *DiskLeafNode) split() *DiskInsertResult {
 	// 创建新的右侧节点
 	newNodePage, err := n.DiskPager.AllocateNewPage()
 	_, _ = n.DiskPager.AllocateNewPage()
-	fmt.Println("newNodePage:", newNodePage)
+	logger.Debug("newNodePage: %v", newNodePage)
 
 	if err != nil {
 		log.Fatal("Failed to allocate new page")
 	}
-	fmt.Printf("when split the ValueLength is %d", n.ValueLength)
+	logger.Debug("when split the valueLength is %d", n.ValueLength)
 	newNode := NewLeafNode(n.Order, n.ValueLength, n.DiskPager, uint32(newNodePage), n.RedoLog)
 	newNode.Keys = append(newNode.Keys, n.Keys[midIndex:]...)
 	newNode.Values = append(newNode.Values, n.Values[midIndex:]...)
 
 	if err := newNode.WriteDisk(-1); err != nil {
-		log.Fatalf("Failed to write new node: %v", err)
+		//log.Fatalf("Failed to write new node: %v", err)
+		logger.Error("Failed to write new node %v", err)
 	}
 
 	// 维护叶子节点链表
 	n.Keys = n.Keys[:midIndex]
 	n.Values = n.Values[:midIndex]
-	//fmt.Println("values :", n.Values)
+	//logger.Debug("values :", n.Values)
 
 	logSequenceNumber, err := n.RedoLog.LogInsertLeafSplit(int32(n.PageNumber))
 	if err != nil {
@@ -108,7 +108,7 @@ func (n *DiskLeafNode) split() *DiskInsertResult {
 	if err := n.WriteDisk(logSequenceNumber); err != nil {
 		log.Fatalf("Failed to write node: %v", err)
 	}
-	fmt.Println("return key is ", newNode.Keys[0])
+	logger.Debug("return key is %v", newNode.Keys[0])
 
 	return &DiskInsertResult{
 		Key:      newNode.Keys[0],
@@ -123,8 +123,8 @@ func (n *DiskLeafNode) Search(key uint32) (interface{}, bool) {
 	for left <= right {
 		mid := left + (right-left)/2
 		if n.Keys[mid] == key {
-			fmt.Println("key is ", n.Keys[mid])
-			fmt.Println("value is ", n.Values[mid])
+			logger.Debug("key is %v", n.Keys[mid])
+			logger.Debug("value is %v", n.Values[mid])
 			return n.Values[mid], true // 返回对应的值
 		} else if n.Keys[mid] < key {
 			left = mid + 1
@@ -177,9 +177,10 @@ func (n *DiskLeafNode) WriteDisk(logSequenceNumber int32) error {
 
 	// 写入 keyCount (4 bytes)
 	keyCount := uint32(len(n.Keys))
-	//fmt.Println("keyCount:", keyCount)
+	//logger.Debug("keyCount:", keyCount)
 	if err := binary.Write(buffer, binary.BigEndian, keyCount); err != nil {
-		log.Fatalf("Failed to write keyCount: %v", err)
+		//log.Fatalf("Failed to write keyCount: %v", err)
+		logger.Error("Failed to write keyCount %v", err)
 	}
 
 	// 写入键 (key)
@@ -189,16 +190,17 @@ func (n *DiskLeafNode) WriteDisk(logSequenceNumber int32) error {
 			log.Fatalf("Failed to write key: %v", err)
 		}
 	}
-	//fmt.Println("valueLength: ", n.ValueLength)
+	//logger.Debug("valueLength: ", n.ValueLength)
 
 	// 写入 valueLength (4 bytes)
 	valueLength := n.ValueLength
 	if err := binary.Write(buffer, binary.BigEndian, valueLength); err != nil {
-		log.Fatalf("Failed to write ValueLength: %v", err)
+		//log.Fatalf("Failed to write ValueLength: %v", err)
+		logger.Error("Failed to write ValueLength: %v", err)
 	}
 
 	// 写入值 (value)
-	//fmt.Println("value length:", len(n.Values))
+	//logger.Debug("value length:", len(n.Values))
 	logger.Debug("value length: %v", valueLength)
 	for _, value := range n.Values {
 		logger.Debug("value: %v", string(value))
@@ -220,7 +222,7 @@ func (n *DiskLeafNode) WriteDisk(logSequenceNumber int32) error {
 
 	// 将缓冲区内容写入磁盘
 	logger.Debug("buffer: %v \n", buffer.Bytes())
-	//fmt.Println("buffer:", string(buffer.Bytes()))
+	//logger.Debug("buffer:", string(buffer.Bytes()))
 	logger.Debug("buffer: %x \n", buffer.Bytes())
 	data := buffer.Bytes()
 	if len(data) < n.DiskPager.GetPageSize() {

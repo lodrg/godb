@@ -79,7 +79,8 @@ func readMetadata(diskPager DiskPager) int {
 	}
 
 	rootPageNumber := int(binary.BigEndian.Uint32(data[:4]))
-	fmt.Println("read form metadata rootPageNumber:", rootPageNumber)
+	//fmt.Println("read form metadata rootPageNumber:", rootPageNumber)
+	logger.Debug("read form metadata rootPageNumber: %v", rootPageNumber)
 	return rootPageNumber
 }
 
@@ -98,20 +99,20 @@ func (bp *BPTree) writeMetadata() {
 }
 
 // Insert 插入键值对
-func (t *BPTree) Insert(key uint32, value []byte) uint32 {
+func (t *BPTree) Insert(key uint32, value []byte) error {
 	logger.Debug("Attempting to insert key: %d, value: %s , value bytes: %x \n", key, value, value)
 	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber, t.RedoLog)
 
 	result := root.Insert(key, value)
 	if result != nil {
 		t.InsertRootNew(key, root.GetPageNumber(), result.DiskNode.GetPageNumber())
-		return 1
+		return nil
 	}
-	return 1
+	return nil
 }
 
 func (t *BPTree) InsertRootNew(key uint32, childPageNumber1 uint32, childPageNumber2 uint32) {
-	fmt.Printf("Split occurred, creating new root\n")
+	logger.Debug("Split occurred, creating new root\n")
 	rootPageNum, err := t.DiskPager.AllocateNewPage()
 	_, _ = t.DiskPager.AllocateNewPage()
 	if err != nil {

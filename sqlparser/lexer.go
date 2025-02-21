@@ -80,17 +80,17 @@ func (l *SQLLexer) readKeywordOrIdent() Token {
 	for l.ch != 0 && (isLetter(l.ch) || isDigit(l.ch) || l.ch == '_' || l.ch == '.') {
 		l.readChar()
 	}
-	//fmt.Println(l.input[position:l.position])
-	//fmt.Println(l.ch)
+	//logger.Debug(l.input[position:l.position])
+	//logger.Debug(l.ch)
 
 	// 注意这里不要包含最后的 NULL 字符
 	word := strings.TrimSpace(string(l.input[position : l.position-1]))
 	//fmt.Printf("word:|%s|\n", word)
 
 	// 先检查是否是复合关键字
-	//fmt.Println("space: ", l.peekIsSpace())
+	//logger.Debug("space: ", l.peekIsSpace())
 	if l.peekIsSpace() {
-		//fmt.Println("position: ", l.input[l.position])
+		//logger.Debug("position: ", l.input[l.position])
 		switch strings.ToUpper(word) {
 		case "ORDER":
 			if l.tryReadNextWord("BY") {

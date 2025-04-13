@@ -1,5 +1,5 @@
 # godb
-go version database frome scratch
+go version database from scratch
 
 tree : b+ tree in memory
 

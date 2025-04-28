@@ -82,7 +82,7 @@ func (b *SqlTableManager) readTableDefinition() map[string]*SqlTableDefinition {
 			var table SqlTableDefinition
 			err = json.Unmarshal(content, &table)
 			if err != nil {
-				logger.Debug("Error:", err)
+				logger.Debug("Error: %v", err)
 			}
 			//fmt.Printf("json : %v \n", table)
 			tableDefinitions[table.TableName] = &table
@@ -97,6 +97,7 @@ func (b *SqlTableManager) readTableTree() map[string]*disktree.BPTree {
 		//fmt.Printf("tableName: %s \n", tableName)
 		size := b.getRowSize(tableName)
 		fileName := b.dataDirectory + "/" + tableName + ".db"
+
 		redolog, err := disktree.NewRedoLog(fileName + ".log")
 		if err != nil {
 			log.Fatal(err)

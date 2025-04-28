@@ -106,18 +106,18 @@ func (n *DiskInternalNode) splitInternalNode() *DiskInsertResult {
 
 	// 将右半部分的键移动到新节点
 	// midIndex + 1 因为中间的键会被提升到父节点
-	logger.Debug("init Node.keys :", newNode.Keys)
+	logger.Debug("init Node.keys : %v", newNode.Keys)
 	newNode.Keys = append(newNode.Keys, n.Keys[midIndex+1:]...)
-	logger.Debug("newNode.keys :", newNode.Keys)
+	logger.Debug("newNode.keys : %v", newNode.Keys)
 	// 将当前节点保留左半部分
 	n.Keys = n.Keys[:midIndex]
 
 	// 移动对应的子节点指针
 	// 子节点数量比键多1
-	logger.Debug("init Node.childrenPageNumbers :", newNode.ChildrenPageNumbers)
+	logger.Debug("init Node.childrenPageNumbers : %v", newNode.ChildrenPageNumbers)
 	newNode.ChildrenPageNumbers = append(newNode.ChildrenPageNumbers,
 		n.ChildrenPageNumbers[midIndex+1:]...)
-	logger.Debug("newNode.childrenPageNumbers :", newNode.ChildrenPageNumbers)
+	logger.Debug("newNode.childrenPageNumbers : %v", newNode.ChildrenPageNumbers)
 	n.ChildrenPageNumbers = n.ChildrenPageNumbers[:midIndex+1]
 
 	logSequenceNumber, err := n.RedoLog.LogInsertInternalSplit(int32(n.PageNumber))

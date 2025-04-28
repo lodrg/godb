@@ -3,7 +3,6 @@ package disktree
 import (
 	"bytes"
 	"fmt"
-	"godb/logger"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -201,7 +200,7 @@ func (dp *DiskPager) AllocateNewPage() (int, error) {
 	dp.info = info
 
 	//fmt.Printf("Allocating new page : %d\n", newPageNum)
-	logger.Info("total page now : %d \n", dp.totalPage)
+	//logger.Info("total page now : %d \n", dp.totalPage)
 
 	return int(newPageNum), nil
 }

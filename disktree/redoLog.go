@@ -93,8 +93,9 @@ func NewRedoLog(filePath string) (*RedoLog, error) {
 		rl.executedLogSequenceMumber = exeLsn
 	}
 
-	position, err := file.Seek(0, io.SeekCurrent)
-	fmt.Print(position)
+	_, err = file.Seek(0, io.SeekCurrent)
+	//position, err := file.Seek(0, io.SeekCurrent)
+	//fmt.Print(position)
 
 	return rl, nil
 }

@@ -39,7 +39,7 @@ func (n *DiskInternalNode) Insert(key uint32, value []byte) *DiskInsertResult {
 		insertIndex++
 	}
 
-	fmt.Printf("insert key: %d index: %d node: %+v\n", key, insertIndex, n)
+	//fmt.Printf("insert key: %d \nindex: %d \nnode: %+v\n", key, insertIndex, n)
 
 	// 递归插入到子节点
 	childPage := n.ChildrenPageNumbers[insertIndex]
@@ -200,8 +200,8 @@ func (n *DiskInternalNode) GetPageNumber() uint32 {
 // WriteDisk 将内部节点写入磁盘
 func (node *DiskInternalNode) WriteDisk(logSequenceNumber int32) error {
 	fmt.Printf("Writing internal node to page %d\n", node.PageNumber) // 添加日志
-	fmt.Printf("keys: %v\n", node.Keys)                               // 添加日志
-	fmt.Printf("Children: %v\n", node.ChildrenPageNumbers)            // 添加日志
+	//fmt.Printf("keys: %v\n", node.Keys)                               // 添加日志
+	//fmt.Printf("Children: %v\n", node.ChildrenPageNumbers) // 添加日志
 	// 获取页面大小
 	pageSize := node.DiskPager.GetPageSize()
 
@@ -240,4 +240,16 @@ func (node *DiskInternalNode) WriteDisk(logSequenceNumber int32) error {
 	}
 
 	return node.DiskPager.WritePage(int(node.PageNumber), data, logSequenceNumber)
+}
+
+// Delete 删除指定 key 的数据
+func (n *DiskInternalNode) Delete(key uint32) error {
+	// 找到应该递归的子节点
+	childIndex := 0
+	for childIndex < len(n.Keys) && key >= n.Keys[childIndex] {
+		childIndex++
+	}
+	childPage := n.ChildrenPageNumbers[childIndex]
+	child := ReadDisk(n.Order, n.DiskPager, childPage, n.RedoLog)
+	return child.Delete(key)
 }

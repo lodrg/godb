@@ -149,7 +149,7 @@ func ReadDisk(order uint32, pager *DiskPager, pageNumber uint32, redolog *RedoLo
 	//for _, b := range data {
 	//	fmt.Printf("%08b ", b) // Print each byte as an 8-bit binary number
 	//}
-	fmt.Println()
+
 	//fmt.Printf("Reading page %d from disk\n", pageNumber) // 添加日志
 	//fmt.Printf("Raw data length: %d\n", len(data))        // 添加日志
 	// 创建一个 bytes.Buffer 来解析数据
@@ -316,4 +316,10 @@ func (t *BPTree) printNodeDetailed(node DiskNode, depth int) {
 				prefix, i, key, n.Values[i])
 		}
 	}
+}
+
+// Delete 删除指定 key 的数据
+func (t *BPTree) Delete(key uint32) error {
+	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber, t.RedoLog)
+	return root.Delete(key)
 }

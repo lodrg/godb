@@ -17,6 +17,7 @@ const (
 	Res_SELECT ResultType = iota
 	Res_INSERT
 	Res_CREATE
+	Res_UPDATE
 	Res_ERROR
 )
 
@@ -44,6 +45,10 @@ func ForSelect(rowsData map[string]interface{}, tableDefinitions []*SqlTableDefi
 
 func ForInsert(affected uint32, tableDefinitions []*SqlTableDefinition) ExecuteResult {
 	return NewExecuteResult(Res_INSERT, nil, affected, tableDefinitions, nil)
+}
+
+func ForUpdate(rowsData map[string]interface{}, tableDefinitions []*SqlTableDefinition) ExecuteResult {
+	return NewExecuteResult(Res_UPDATE, rowsData, 1, tableDefinitions, nil)
 }
 
 func ForCreate(tableDefinitions []*SqlTableDefinition) ExecuteResult {

@@ -44,6 +44,13 @@ type InsertNode struct {
 	Values    []interface{}
 }
 
+type UpdateNode struct {
+	TableName   string
+	Columns     []string
+	WhereClause []*BinaryOpNode
+	Values      []interface{}
+}
+
 func newInsertNode(tableName string, columns []string, values []interface{}) *InsertNode {
 	return &InsertNode{
 		TableName: tableName,
@@ -140,6 +147,13 @@ func (n *IdentifierNode) String() string {
 		return "<nil>"
 	}
 	return n.Name
+}
+
+func (n *UpdateNode) String() string {
+	if n == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("UPDATE (%s, %s)", n.TableName, n.Columns)
 }
 
 // InsertNode

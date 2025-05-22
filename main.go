@@ -24,7 +24,6 @@ func useBP() {
 	redoLog, _ := disktree.NewRedoLog(logFileName)
 
 	diskPager, err := disktree.NewDiskPager(dbfileName, 80, 80, redoLog)
-
 	if err != nil {
 		log.Fatal("Failed to allocate new page")
 	}

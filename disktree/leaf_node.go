@@ -236,3 +236,23 @@ func (n *DiskLeafNode) WriteDisk(logSequenceNumber int32) error {
 func (n *DiskLeafNode) GetPageNumber() uint32 {
 	return n.PageNumber
 }
+
+// Delete 删除指定 key 的数据
+func (n *DiskLeafNode) Delete(key uint32) error {
+	for i, k := range n.Keys {
+		if k == key {
+			// 删除 key 和 value
+			n.Keys = append(n.Keys[:i], n.Keys[i+1:]...)
+			n.Values = append(n.Values[:i], n.Values[i+1:]...)
+			logSequenceNumber, err := n.RedoLog.LogInsertLeafNormal(int32(n.PageNumber), int32(key), nil)
+			if err != nil {
+				return err
+			}
+			if err := n.WriteDisk(logSequenceNumber); err != nil {
+				return err
+			}
+			return nil
+		}
+	}
+	return nil // 没找到也算成功
+}

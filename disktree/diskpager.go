@@ -3,6 +3,7 @@ package disktree
 import (
 	"bytes"
 	"fmt"
+	"godb/logger"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -64,7 +65,9 @@ func NewDiskPager(filename string, pageSize int, cacheSize int, redolog *RedoLog
 	if info.Size()%int64(pageSize) > 0 {
 		totalPage++
 	}
-	//logger.Debug("totalPage: ", totalPage)
+	logger.Debug("size: %d \n", info.Size())
+	logger.Debug("pageSize: %d \n", pageSize)
+	logger.Debug("totalPage: %d \n", totalPage)
 
 	dp := &DiskPager{
 		fileName:             filename,
@@ -126,7 +129,7 @@ func (dp *DiskPager) ReadPage(pageNum int) ([]byte, error) {
 	// check cache first
 	cachePage, _ := dp.cache.Load(pageNum)
 	if cachePage != nil {
-		//update lru
+		// update lru
 		dp.lru.add(pageNum)
 		return cachePage.([]byte), nil
 	}
@@ -161,7 +164,7 @@ func (dp *DiskPager) addToCache(pageNum int, data []byte) {
 		}
 	}
 	dp.cache.Store(pageNum, data)
-	//updatelru
+	// updatelru
 	dp.lru.add(pageNum)
 }
 
@@ -199,8 +202,8 @@ func (dp *DiskPager) AllocateNewPage() (int, error) {
 	info, _ := dp.file.Stat()
 	dp.info = info
 
-	//fmt.Printf("Allocating new page : %d\n", newPageNum)
-	//logger.Info("total page now : %d \n", dp.totalPage)
+	// fmt.Printf("Allocating new page : %d\n", newPageNum)
+	// logger.Info("total page now : %d \n", dp.totalPage)
 
 	return int(newPageNum), nil
 }

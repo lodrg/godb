@@ -8,6 +8,7 @@ type DiskNode interface {
 	GetKeys() []uint32
 	GetPageNumber() uint32
 	WriteDisk(logSequenceNumber int32) error
+	Delete(key uint32) error
 }
 
 type DiskInsertResult struct {

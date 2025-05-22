@@ -49,28 +49,28 @@ func TestDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to query by age index: %v", err)
 	}
-	logger.Info("Age index query result: %v", result)
+	logger.Info("Age index query result:\n%v", result)
 
 	// 二级索引查询测试 - Socre
 	result, err = base.Execute("SELECT id, name, email FROM users WHERE score = 90")
 	if err != nil {
 		t.Fatalf("Failed to query by email index: %v", err)
 	}
-	logger.Info("Email index query result: %v", result)
+	logger.Info("Email index query result:\n%v", result)
 
 	// 复合条件查询测试
 	result, err = base.Execute("SELECT id, name, age, status FROM users WHERE age = 25 AND status = 'active'")
 	if err != nil {
 		t.Fatalf("Failed to query with multiple conditions: %v", err)
 	}
-	logger.Info("Multiple conditions query result: %v", result)
+	logger.Info("Multiple conditions query result:\n%v", result)
 
 	// 范围查询测试
 	result, err = base.Execute("SELECT id, name, age, score FROM users WHERE age >= 25 AND age <= 30")
 	if err != nil {
 		t.Fatalf("Failed to perform range query: %v", err)
 	}
-	logger.Info("Range query result: %v", result)
+	logger.Info("Range query result:\n%v", result)
 
 	// 以下功能还没有
 

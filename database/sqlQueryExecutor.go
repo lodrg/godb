@@ -86,6 +86,72 @@ func (e *SqlQueryExecutor) processSelect(node *SelectNode, tableDefinitions []*S
 	return result
 }
 
+func (e *SqlQueryExecutor) processUpdate(node *UpdateNode, tableDefinitions []*SqlTableDefinition) map[string]interface{} {
+	logger.Debug("start process update sql")
+	result := make(map[string]interface{}, 0)
+	tableDefinition := e.SqlTableManager.getTableDefinition(node.TableName)
+	primaryTree := e.SqlTableManager.tablePrimaryIndex[node.TableName]
+
+	if node.WhereClause == nil || len(node.WhereClause) == 0 {
+		log.Fatal("Where clause is empty")
+	}
+	condition, err := getPrimeryKeyCondition(node.WhereClause, tableDefinition, EQUALS)
+	if err != nil {
+		log.Fatal("Only support update by primary key")
+	}
+	priKey := condition.Right.(*LiteralNode).Value.(uint32)
+	rows := GetPrimaryTreeRows(primaryTree, priKey, tableDefinition)
+	if len(rows) == 0 {
+		log.Fatal("No row found to update")
+	}
+	row := rows[0]
+
+	// 记录更新前的二级索引值
+	oldSecondaryValues := make(map[string]interface{})
+	for _, colDef := range tableDefinition.Columns {
+		if colDef.IndexType == Secondary {
+			oldSecondaryValues[colDef.Name] = row[colDef.Name]
+		}
+	}
+
+	// 应用更新
+	for i, col := range node.Columns {
+		row[col] = node.Values[i]
+	}
+
+	// 写回主索引
+	bufRecord := serializeRow(row, tableDefinition)
+	err = primaryTree.Insert(priKey, bufRecord.Bytes())
+	if err != nil {
+		log.Fatal("Failed to update primary index")
+	}
+
+	// 处理二级索引（先删除旧索引，再插入新索引）
+	indexes := e.SqlTableManager.getTableIndexes(node.TableName)
+	for i, col := range node.Columns {
+		for _, colDef := range tableDefinition.Columns {
+			if colDef.Name == col && colDef.IndexType == Secondary {
+				indexTree := indexes[col]
+				// 先删除旧索引
+				if oldVal, ok := oldSecondaryValues[col]; ok {
+					if oldKey, ok2 := oldVal.(uint32); ok2 {
+						indexTree.Delete(oldKey)
+					}
+				}
+				// 再插入新索引
+				newIndexKey := node.Values[i].(uint32)
+				indexTree.Insert(newIndexKey, e.SqlTableManager.serializeInt(priKey))
+			}
+		}
+	}
+
+	// 返回更新后的行
+	for k, v := range row {
+		result[k] = v
+	}
+	return result
+}
+
 func (e *SqlQueryExecutor) processInsert(node *InsertNode, tableDefinitions []*SqlTableDefinition) uint32 {
 	logger.Debug("start process insert sql")
 	tableDef := e.SqlTableManager.getTableDefinition(node.TableName)

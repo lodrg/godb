@@ -35,6 +35,8 @@ const (
 	EQUALS
 	AND
 	IN
+	UPDATE
+	SET
 	ILLEGAL
 	EOF
 )
@@ -104,6 +106,10 @@ func (t TokenType) String() string {
 		return "AND"
 	case IN:
 		return "IN"
+	case UPDATE:
+		return "UPDATE"
+	case SET:
+		return "SET"
 	case ILLEGAL:
 		return "ILLEGAL"
 	case EOF:

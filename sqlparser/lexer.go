@@ -135,6 +135,10 @@ func (l *SQLLexer) readKeywordOrIdent() Token {
 		return NewToken(CHAR, word)
 	case "INDEX":
 		return NewToken(INDEX, word)
+	case "UPDATE":
+		return NewToken(UPDATE, word)
+	case "SET":
+		return NewToken(SET, word)
 	default:
 		return NewToken(IDENTIFIER, word)
 	}

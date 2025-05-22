@@ -335,6 +335,27 @@ func TestLexer_SQLStatements(t *testing.T) {
 				{Type: entity.EOF, Value: ""},
 			},
 		},
+		{
+			name:  "UPDATE - Basic",
+			input: "UPDATE users SET name = 'John', age = 25 WHERE id = 1",
+			expected: []entity.Token{
+				{Type: entity.UPDATE, Value: "UPDATE"},
+				{Type: entity.IDENTIFIER, Value: "users"},
+				{Type: entity.SET, Value: "SET"},
+				{Type: entity.IDENTIFIER, Value: "name"},
+				{Type: entity.EQUALS, Value: "="},
+				{Type: entity.STRING, Value: "John"},
+				{Type: entity.COMMA, Value: ","},
+				{Type: entity.IDENTIFIER, Value: "age"},
+				{Type: entity.EQUALS, Value: "="},
+				{Type: entity.INTEGER, Value: "25"},
+				{Type: entity.WHERE, Value: "WHERE"},
+				{Type: entity.IDENTIFIER, Value: "id"},
+				{Type: entity.EQUALS, Value: "="},
+				{Type: entity.INTEGER, Value: "1"},
+				{Type: entity.EOF, Value: ""},
+			},
+		},
 	}
 
 	for _, tt := range tests {

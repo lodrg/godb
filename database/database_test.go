@@ -75,18 +75,18 @@ func TestDatabase(t *testing.T) {
 	// 以下功能还没有
 
 	// 更新测试
-	//_, err = base.Execute("UPDATE users SET status = 'inactive' WHERE id = 2")
-	//if err != nil {
-	//	t.Fatalf("Failed to update record: %v", err)
-	//}
+	_, err = base.Execute("UPDATE users SET status = 'inactive' WHERE id = 2")
+	if err != nil {
+		t.Fatalf("Failed to update record: %v", err)
+	}
 
-	//// 验证更新结果
-	//result, err = base.Execute("SELECT id, name, status FROM users WHERE id = 2")
-	//if err != nil {
-	//	t.Fatalf("Failed to verify update: %v", err)
-	//}
-	//logger.Info("Update verification result: %v", result)
-	//
+	// 验证更新结果
+	result, err = base.Execute("SELECT id, name, status FROM users WHERE id = 2")
+	if err != nil {
+		t.Fatalf("Failed to verify update: %v", err)
+	}
+	logger.Info("Update verification result: %v", result)
+
 	//// 删除测试
 	//_, err = base.Execute("DELETE FROM users WHERE id = 5")
 	//if err != nil {

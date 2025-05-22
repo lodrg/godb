@@ -64,6 +64,8 @@ func (p *SQLParser) parse() (ASTNode, error) {
 		return p.parseInsert(), nil
 	case CREATE_TABLE:
 		return p.parseCreateTable(), nil
+	case UPDATE:
+		return p.parseUpdate(), nil
 	default:
 		return nil, fmt.Errorf("unsupported SQL statement: %v", token)
 	}
@@ -385,5 +387,49 @@ func (p *SQLParser) parseDataType() (DataType, error) {
 		return TypeChar, nil
 	} else {
 		return 0, errors.New("unsupported data type")
+	}
+}
+
+func (p *SQLParser) parseUpdate() *UpdateNode {
+	p.consume(UPDATE)
+	tableName, _ := p.parsePlainString()
+	p.consume(SET)
+
+	columns := make([]string, 0)
+	values := make([]interface{}, 0)
+
+	// Parse SET clause
+	for {
+		column, _ := p.parsePlainString()
+		p.consume(EQUALS)
+		value, _ := p.parseColumnOrLiteralOrSubquery()
+
+		columns = append(columns, column)
+		if literal, ok := value.(*LiteralNode); ok {
+			values = append(values, literal.Value)
+		} else {
+			panic("Expected literal value in SET clause")
+		}
+
+		if p.match(COMMA) {
+			p.next()
+			continue
+		} else {
+			break
+		}
+	}
+
+	// Parse WHERE clause
+	var whereClause []*BinaryOpNode
+	if p.match(WHERE) {
+		p.next()
+		whereClause, _ = p.parseWhereCondition()
+	}
+
+	return &UpdateNode{
+		TableName:   tableName,
+		Columns:     columns,
+		Values:      values,
+		WhereClause: whereClause,
 	}
 }

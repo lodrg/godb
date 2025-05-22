@@ -560,3 +560,100 @@ func TestEdgeCases_InsertAndCreate(t *testing.T) {
 		})
 	}
 }
+
+func TestParser_Update(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected *entity.UpdateNode
+	}{
+		{
+			name:  "Basic UPDATE",
+			input: "UPDATE users SET name = 'John', age = 25 WHERE id = 1",
+			expected: &entity.UpdateNode{
+				TableName: "users",
+				Columns:   []string{"name", "age"},
+				Values:    []interface{}{"John", uint32(25)},
+				WhereClause: []*entity.BinaryOpNode{
+					{
+						Operator: entity.EQUALS,
+						Left: &entity.ColumnNode{
+							ColumnName: "id",
+							ColumnType: entity.PLAIN_STRING,
+						},
+						Right: &entity.LiteralNode{
+							Value: uint32(1),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			node, err := Parse(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			updateNode, ok := node.(*entity.UpdateNode)
+			if !ok {
+				t.Fatalf("expected UpdateNode, got %T", node)
+			}
+
+			if updateNode.TableName != tt.expected.TableName {
+				t.Errorf("wrong table name. got=%s, want=%s", updateNode.TableName, tt.expected.TableName)
+			}
+
+			if len(updateNode.Columns) != len(tt.expected.Columns) {
+				t.Errorf("wrong number of columns. got=%d, want=%d", len(updateNode.Columns), len(tt.expected.Columns))
+			}
+
+			for i, col := range updateNode.Columns {
+				if col != tt.expected.Columns[i] {
+					t.Errorf("wrong column at index %d. got=%s, want=%s", i, col, tt.expected.Columns[i])
+				}
+			}
+
+			if len(updateNode.Values) != len(tt.expected.Values) {
+				t.Errorf("wrong number of values. got=%d, want=%d", len(updateNode.Values), len(tt.expected.Values))
+			}
+
+			for i, val := range updateNode.Values {
+				if val != tt.expected.Values[i] {
+					t.Errorf("wrong value at index %d. got=%v, want=%v", i, val, tt.expected.Values[i])
+				}
+			}
+
+			if len(updateNode.WhereClause) != len(tt.expected.WhereClause) {
+				t.Errorf("wrong number of where conditions. got=%d, want=%d", len(updateNode.WhereClause), len(tt.expected.WhereClause))
+			}
+
+			for i, where := range updateNode.WhereClause {
+				expectedWhere := tt.expected.WhereClause[i]
+				if where.Operator != expectedWhere.Operator {
+					t.Errorf("wrong operator at index %d. got=%v, want=%v", i, where.Operator, expectedWhere.Operator)
+				}
+
+				leftCol, ok := where.Left.(*entity.ColumnNode)
+				if !ok {
+					t.Errorf("expected ColumnNode for left operand at index %d", i)
+				}
+				expectedLeftCol := expectedWhere.Left.(*entity.ColumnNode)
+				if leftCol.ColumnName != expectedLeftCol.ColumnName {
+					t.Errorf("wrong column name at index %d. got=%s, want=%s", i, leftCol.ColumnName, expectedLeftCol.ColumnName)
+				}
+
+				rightLit, ok := where.Right.(*entity.LiteralNode)
+				if !ok {
+					t.Errorf("expected LiteralNode for right operand at index %d", i)
+				}
+				expectedRightLit := expectedWhere.Right.(*entity.LiteralNode)
+				if rightLit.Value != expectedRightLit.Value {
+					t.Errorf("wrong literal value at index %d. got=%v, want=%v", i, rightLit.Value, expectedRightLit.Value)
+				}
+			}
+		})
+	}
+}

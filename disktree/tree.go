@@ -323,3 +323,7 @@ func (t *BPTree) Delete(key uint32) error {
 	root := ReadDisk(t.order, &t.DiskPager, t.rootPageNumber, t.RedoLog)
 	return root.Delete(key)
 }
+
+func (t *BPTree) Flush() error {
+	return t.DiskPager.Flush()
+}

@@ -118,6 +118,7 @@ func (e *SqlQueryExecutor) processUpdate(node *UpdateNode, tableDefinitions []*S
 	for i, col := range node.Columns {
 		row[col] = node.Values[i]
 	}
+	logger.Info(" row update: %v", row)
 
 	// 写回主索引
 	bufRecord := serializeRow(row, tableDefinition)
@@ -143,6 +144,10 @@ func (e *SqlQueryExecutor) processUpdate(node *UpdateNode, tableDefinitions []*S
 				indexTree.Insert(newIndexKey, e.SqlTableManager.serializeInt(priKey))
 			}
 		}
+	}
+
+	if err := e.SqlTableManager.Flush(); err != nil {
+		log.Fatal("Failed to flush changes to disk")
 	}
 
 	// 返回更新后的行

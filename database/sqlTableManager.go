@@ -276,3 +276,22 @@ func (b *SqlTableManager) addSecondaryIndex(definition *SqlTableDefinition) {
 func (b *SqlTableManager) getSecondaryIndex(tableName string, columnName string) *disktree.BPTree {
 	return b.tableSecondaryIndexs[tableName][columnName]
 }
+
+func (b *SqlTableManager) Flush() error {
+	// 刷新主索引
+	for _, tree := range b.tablePrimaryIndex {
+		if err := tree.Flush(); err != nil {
+			return fmt.Errorf("failed to flush primary index: %v", err)
+		}
+	}
+
+	// 刷新所有二级索引
+	for _, indexes := range b.tableSecondaryIndexs {
+		for _, tree := range indexes {
+			if err := tree.Flush(); err != nil {
+				return fmt.Errorf("failed to flush secondary index: %v", err)
+			}
+		}
+	}
+	return nil
+}

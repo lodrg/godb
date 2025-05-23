@@ -41,10 +41,15 @@ func (n *DiskLeafNode) Insert(key uint32, value []byte) *DiskInsertResult {
 	// 如果键已存在，更新值
 	if insertIndex < len(n.Keys) && n.Keys[insertIndex] == key {
 		n.Values[insertIndex] = value
-		return &DiskInsertResult{
-			Key:      n.Keys[0], // 分裂键为新节点的第一个键
-			DiskNode: n,
+		// 写入更新后的值到磁盘
+		logSequenceNumber, err := n.RedoLog.LogInsertLeafNormal(int32(n.PageNumber), int32(key), value)
+		if err != nil {
+			logger.Error("failed to insert leaf node log")
 		}
+		if err := n.WriteDisk(logSequenceNumber); err != nil {
+			log.Fatalf("Failed to write leaf node: %v", err)
+		}
+		return nil
 	}
 
 	// 插入新条目

@@ -33,6 +33,7 @@ func TestTree(t *testing.T) {
 			{3, "charlie@test.com"},
 			{4, "david@test.com"},
 			{5, "eve@test.com"},
+			{5, "eve@test2.com"},
 		}
 
 		for _, insert := range inserts {
@@ -42,6 +43,7 @@ func TestTree(t *testing.T) {
 
 	// 测试主键查询
 	t.Run("Query by Primary Key", func(t *testing.T) {
+		tree.Insert(1, []byte("tsdsd"))
 		value, found := tree.Search(1)
 		if !found {
 			t.Fatalf("Failed to query by primary key")
@@ -66,6 +68,7 @@ func TestTree(t *testing.T) {
 	// 测试更新操作
 	t.Run("Update Records", func(t *testing.T) {
 		tree.Insert(2, []byte("updated@test.com"))
+		tree.Insert(2, []byte("updated02@test.com"))
 
 		// 验证更新结果
 		result, found := tree.Search(2)

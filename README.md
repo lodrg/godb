@@ -1,7 +1,7 @@
 # godb
 go version database from scratch
 
-project structure:
+## project structure:
 ```
 .
 ├── LICENSE
@@ -59,21 +59,21 @@ project structure:
 └── users.db
 ```
 
-SQL support:
+## SQL support:
 CREATE
 INSERT
 UPDATE
 SELECT (support where order)
 
-index support:
+## index support:
 primary key
 secondary keys
 
-data type support:
+## data type support:
 INT
 CHAR
 
-DISKTREE: b+ tree engine with disk flush
+## DISKTREE: b+ tree engine with disk flush
 
     include b+ tree in disk 
     redolog
@@ -82,4 +82,4 @@ DISKTREE: b+ tree engine with disk flush
     cache
     lru
 
-SQLPARSER: lexer and parser to sql
+## SQLPARSER: lexer and parser to sql

@@ -2,6 +2,7 @@
 go version database from scratch
 
 ## project structure:
+
 ```
 .
 ├── LICENSE
@@ -60,18 +61,18 @@ go version database from scratch
 ```
 
 ## SQL support:
-CREATE
-INSERT
-UPDATE
-SELECT (support where order)
+    CREATE
+    INSERT
+    UPDATE
+    SELECT (support where order)
 
 ## index support:
-primary key
-secondary keys
+    primary key
+    secondary keys
 
 ## data type support:
-INT
-CHAR
+    INT
+    CHAR
 
 ## DISKTREE: b+ tree engine with disk flush
 
@@ -82,4 +83,5 @@ CHAR
     cache
     lru
 
-## SQLPARSER: lexer and parser to sql
+## SQLPARSER: 
+    lexer and parser to sql

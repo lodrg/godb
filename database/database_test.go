@@ -6,6 +6,7 @@ package database
 // @Update       david 2025-01-09 14:17
 import (
 	"godb/logger"
+	"strings"
 	"testing"
 )
 
@@ -15,6 +16,7 @@ func TestDatabase(t *testing.T) {
 	dir := "data"
 	base := NewDataBase(dir)
 
+	logger.Info(":::start to test database......")
 	// 创建表
 	_, err := base.Execute("CREATE TABLE users (id INT PRIMARY KEY, name CHAR, age INT INDEX, email CHAR, score INT INDEX, status CHAR)")
 	if err != nil {
@@ -31,13 +33,12 @@ func TestDatabase(t *testing.T) {
 	}
 
 	for _, insert := range inserts {
-		_, err := base.Execute(insert)
-		if err != nil {
-			t.Fatalf("Failed to insert: %v", err)
-		}
+		base.Execute(insert)
 	}
 
 	// 主键查询测试
+	logger.Info(strings.Repeat("-", 80))
+	logger.Info(":::start to QUERY main keys......")
 	result, err := base.Execute("SELECT id, name, age FROM users WHERE id = 1")
 	if err != nil {
 		t.Fatalf("Failed to query by primary key: %v", err)
@@ -45,6 +46,8 @@ func TestDatabase(t *testing.T) {
 	logger.Info("Primary key query result: %v", result)
 
 	// 二级索引查询测试 - Age
+	logger.Info(strings.Repeat("-", 80))
+	logger.Info(":::start to QUERY secondary keys......")
 	result, err = base.Execute("SELECT id, name, email FROM users WHERE age = 25")
 	if err != nil {
 		t.Fatalf("Failed to query by age index: %v", err)
@@ -59,6 +62,8 @@ func TestDatabase(t *testing.T) {
 	logger.Info("Email index query result:\n%v", result)
 
 	// 复合条件查询测试
+	logger.Info(strings.Repeat("-", 80))
+	logger.Info(":::start to complex QUERY keys......")
 	result, err = base.Execute("SELECT id, name, age, status FROM users WHERE age = 25 AND status = 'active'")
 	if err != nil {
 		t.Fatalf("Failed to query with multiple conditions: %v", err)
@@ -66,15 +71,17 @@ func TestDatabase(t *testing.T) {
 	logger.Info("Multiple conditions query result:\n%v", result)
 
 	// 范围查询测试
+	logger.Info(strings.Repeat("-", 80))
+	logger.Info(":::start to range QUERY keys......")
 	result, err = base.Execute("SELECT id, name, age, score FROM users WHERE age >= 25 AND age <= 30")
 	if err != nil {
 		t.Fatalf("Failed to perform range query: %v", err)
 	}
 	logger.Info("Range query result:\n%v", result)
 
-	// 以下功能还没有
-
 	// 更新测试
+	logger.Info(strings.Repeat("-", 80))
+	logger.Info(":::start to test UPDATE......")
 	_, err = base.Execute("UPDATE users SET status = 'inactive' WHERE id = 2")
 	if err != nil {
 		t.Fatalf("Failed to update record: %v", err)

@@ -1,1 +1,0 @@
-{"tableName":"users","columns":[{"name":"id","dataType":"INT","indexType":"Primary"},{"name":"name","dataType":"CHAR","indexType":"None"},{"name":"age","dataType":"INT","indexType":"Secondary"},{"name":"email","dataType":"CHAR","indexType":"None"},{"name":"score","dataType":"INT","indexType":"Secondary"},{"name":"status","dataType":"CHAR","indexType":"None"}]}

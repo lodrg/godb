@@ -35,7 +35,6 @@ func TestDiskPager(t *testing.T) {
 		pageNum, err := pager.AllocateNewPage()
 
 		seeDetail(filename, pageSize)
-
 		if err != nil {
 			t.Errorf("Failed to allocate new page: %v", err)
 		}

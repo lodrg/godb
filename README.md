@@ -61,16 +61,22 @@ go version database from scratch
 ```
 
 ## SQL support:
+SqlParser will deal this part
+
     CREATE
     INSERT
     UPDATE
     SELECT (support where order)
 
 ## index support:
+BPlus tree handle this part
+
     primary key
     secondary keys
 
 ## data type support:
+Basic data type
+
     INT
     CHAR
 
@@ -84,4 +90,5 @@ go version database from scratch
     lru
 
 ## SQLPARSER: 
+
     lexer and parser to sql

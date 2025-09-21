@@ -97,9 +97,6 @@ func (n *InternalNode) Search(key int) (interface{}, bool) {
 	for index < len(n.entries) && n.entries[index].Key <= key {
 		index++
 	}
-	if index > 0 {
-		index--
-	}
 	return n.children[index].Search(key)
 }
 

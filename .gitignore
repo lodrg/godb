@@ -33,3 +33,7 @@ go.work.sum
 /.settings/
 /.vscode/
 /bin/
+
+
+*.idx
+*.log
